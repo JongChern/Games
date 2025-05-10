@@ -1,19 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Rock Paper Scissors</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <title>Rock Paper Scissors</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Rock Paper Scissors</h1>
-    <div id="choices">
-        <button onclick="play('rock')">Rock</button>
-        <button onclick="play('paper')">Paper</button>
-        <button onclick="play('scissors')">Scissors</button>
-    </div>
-    <h2 id="result"></h2>
+  <h1>Rock Paper Scissors</h1>
 
-    <script src="script.js"></script>
+  <div id="choices">
+    <img src="rock.png" alt="Rock" onclick="play('rock')" class="choice">
+    <img src="paper.png" alt="Paper" onclick="play('paper')" class="choice">
+    <img src="scissors.png" alt="Scissors" onclick="play('scissors')" class="choice">
+  </div>
+
+  <div id="computer-choice">
+    <h2>Computer Chose:</h2>
+    <img id="computerImage" src="" alt="" class="choice hidden">
+  </div>
+
+  <h2 id="result" class="result-text"></h2>
+
+  <div id="stats">
+    <p><strong>Wins:</strong> <span id="winCount">0</span></p>
+    <p><strong>Current Win Streak:</strong> <span id="winStreak">0</span></p>
+    <!-- <p><strong>Odds of Winning Next Game:</strong> <span id="nextOdds">33.33%</span></p>
+    <p><strong>Odds of Continuing Your Streak:</strong> <span id="streakOdds">100%</span></p> -->
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html>
