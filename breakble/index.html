@@ -6,16 +6,14 @@
   <title>Breakout Game</title>
   <style>
      body {
-    margin: 0;
-    padding: 0;
-    background: #000;
-    color: white;
-    font-family: sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    overflow-y: auto;
-  }
+  margin: 0;
+  padding: 0;
+  background: #000;
+  color: white;
+  font-family: sans-serif;
+  display: block;        /* allow natural flow */
+  overflow-y: auto;      /* vertical scrolling */
+}
 
   button {
     margin: 5px;
@@ -55,8 +53,9 @@ canvas {
   width: 100%;
   max-width: 480px;
   height: auto;
-  max-height: 540px; /* was 720px, now reduced to 3/4 */
-  margin-bottom: 20px;
+  max-height: 540px; /* 3/4 of original size */
+  display: block;
+  margin: 20px auto;
 }
 
 
