@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Bottle Swap Game</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 1em;
+    }
+
+    .bottle-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin: 20px 0;
+    }
+
+    .bottle {
+      width: 60px;
+      height: 150px;
+      border: 3px solid transparent;
+      transition: transform 0.2s, border-color 0.2s;
+      touch-action: none;
+    }
+
+    .bottle.dragging {
+      opacity: 0.6;
+      border-color: #666;
+    }
+
+    .bottle.over {
+      border-color: black;
+    }
+
+    #feedback {
+      font-size: 1.2em;
+      margin-top: 15px;
+    }
+
+    #tries {
+      font-weight: bold;
+    }
+
+    .end-message {
+      font-size: 1.5em;
+      color: red;
+      margin-top: 20px;
+    }
+
+    @media (max-width: 500px) {
+      .bottle {
+        width: 50px;
+        height: 120px;
+      }
+
+      h2 {
+        font-size: 1.3em;
+      }
+
+      #feedback {
+        font-size: 1em;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<h2>🔄 Bottle Guessing Game</h2>
+<p>Drag and drop two bottles to swap them. You have 8 tries to guess the order.</p>
+
+<div class="bottle-container" id="bottles"></div>
+<p id="feedback"></p>
+<p id="tries">Tries: 0 / 8</p>
+<p class="end-message" id="endMessage"></p>
+
+<script>
+  const bottleImages = [
+    "bottle_1.png",
+    "bottle_2.png",
+    "bottle_3.png",
+    "bottle_4.png",
+    "bottle_5.png"
+  ];
+
+  const groundTruth = [...bottleImages].sort(() => Math.random() - 0.5);
+  let currentOrder = [...bottleImages].sort(() => Math.random() - 0.5);
+  let tries = 0;
+  let gameOver = false;
+  let dragSrcIndex = null;
+
+  const bottlesDiv = document.getElementById("bottles");
+  const feedback = document.getElementById("feedback");
+  const triesText = document.getElementById("tries");
+  const endMessage = document.getElementById("endMessage");
+
+  function renderBottles() {
+    bottlesDiv.innerHTML = "";
+    currentOrder.forEach((imgSrc, index) => {
+      const img = document.createElement("img");
+      img.src = imgSrc;
+      img.className = "bottle";
+      img.draggable = true;
+      img.dataset.index = index;
+
+      img.addEventListener("dragstart", (e) => {
+        if (gameOver) return;
+        dragSrcIndex = +e.target.dataset.index;
+        e.dataTransfer.effectAllowed = "move";
+        e.target.classList.add("dragging");
+      });
+
+      img.addEventListener("dragend", (e) => {
+        e.target.classList.remove("dragging");
+      });
+
+      img.addEventListener("dragover", (e) => {
+        if (gameOver) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        e.target.classList.add("over");
+      });
+
+      img.addEventListener("dragleave", (e) => {
+        e.target.classList.remove("over");
+      });
+
+      img.addEventListener("drop", (e) => {
+        e.preventDefault();
+        const dropIndex = +e.target.dataset.index;
+        e.target.classList.remove("over");
+
+        if (dragSrcIndex !== null && dragSrcIndex !== dropIndex) {
+          swapBottles(dragSrcIndex, dropIndex);
+          tries++;
+          checkCorrect();
+          renderBottles();
+        }
+      });
+
+      bottlesDiv.appendChild(img);
+    });
+  }
+
+  function swapBottles(i, j) {
+    [currentOrder[i], currentOrder[j]] = [currentOrder[j], currentOrder[i]];
+  }
+
+  function checkCorrect() {
+    let correct = 0;
+    for (let i = 0; i < currentOrder.length; i++) {
+      if (currentOrder[i] === groundTruth[i]) correct++;
+    }
+
+    feedback.textContent = `${correct} bottle(s) in the correct position`;
+    triesText.textContent = `Tries: ${tries} / 8`;
+
+    if (correct === currentOrder.length) {
+      endMessage.textContent = "🎉 You win!";
+      gameOver = true;
+    } else if (tries >= 8) {
+      endMessage.textContent = "❌ You lose!";
+      gameOver = true;
+    }
+  }
+
+  renderBottles();
+</script>
+
+</body>
+</html>

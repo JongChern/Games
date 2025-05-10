@@ -2,15 +2,25 @@ body {
   text-align: center;
   font-family: Arial, sans-serif;
   background-color: #f7f7f7;
+  padding: 10px;
+  margin: 0;
+}
+
+h1 {
+  font-size: 6vw;
 }
 
 #choices, #computer-choice {
-  margin: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 20px 0;
 }
 
 .choice {
-  width: 150px;
-  margin: 10px;
+  width: 30vw;
+  max-width: 150px;
+  margin: 5px;
   cursor: pointer;
   border-radius: 10px;
   transition: transform 0.2s;
@@ -25,11 +35,10 @@ body {
 }
 
 .result-text {
-  font-size: 24px;
+  font-size: 5vw;
   margin-top: 20px;
 }
 
-/* Color-coded outcomes */
 .result-win {
   color: green;
 }
@@ -43,6 +52,20 @@ body {
 }
 
 #stats {
-  margin-top: 30px;
-  font-size: 18px;
+  font-size: 4vw;
+  margin-top: 20px;
+}
+
+@media (min-width: 600px) {
+  h1 {
+    font-size: 32px;
+  }
+
+  .result-text {
+    font-size: 24px;
+  }
+
+  #stats {
+    font-size: 18px;
+  }
 }
