@@ -5,20 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Breakout Game</title>
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: #000;
-      overflow: hidden;
-      touch-action: manipulation;
-    }
+	html, body {
+	  margin: 0;
+	  padding: 0;
+	  background: #000;
+	  overflow: hidden;
+	  touch-action: manipulation;
+	  display: flex;
+	  justify-content: center;
+	  align-items: center;
+	  height: 100vh;
+	}
 
-    canvas {
-      display: block;
-      margin: auto;
-      background: #111;
-      border: 2px solid #fff;
-    }
+	canvas {
+	  background: #111;
+	  border: 2px solid #fff;
+	  width: 100%;
+	  height: auto;
+	  max-width: 480px;
+	  max-height: 720px;
+	}
   </style>
 </head>
 <body>
@@ -28,10 +34,17 @@
     const canvas = document.getElementById("breakout");
     const ctx = canvas.getContext("2d");
 
-    function resizeCanvas() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    }
+	function resizeCanvas() {
+	  const maxWidth = 480;
+	  const maxHeight = 720;
+	  const scale = Math.min(window.innerWidth / maxWidth, window.innerHeight / maxHeight);
+
+	  canvas.width = maxWidth;
+	  canvas.height = maxHeight;
+
+	  canvas.style.width = `${maxWidth * scale}px`;
+	  canvas.style.height = `${maxHeight * scale}px`;
+	}
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
