@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bottle Swap Game</title>
   <style>
     body {
@@ -22,17 +22,16 @@
     .bottle {
       width: 60px;
       height: 150px;
+      cursor: pointer;
       border: 3px solid transparent;
       transition: transform 0.2s, border-color 0.2s;
-      touch-action: none;
     }
 
-    .bottle.dragging {
-      opacity: 0.6;
-      border-color: #666;
+    .bottle:active {
+      transform: scale(1.05);
     }
 
-    .bottle.over {
+    .selected {
       border-color: black;
     }
 
@@ -70,7 +69,7 @@
 <body>
 
 <h2>🔄 Bottle Guessing Game</h2>
-<p>Drag and drop two bottles to swap them. You have 8 tries to guess the order.</p>
+<p>Tap two bottles to swap. You have 8 tries to get them in the correct order.</p>
 
 <div class="bottle-container" id="bottles"></div>
 <p id="feedback"></p>
@@ -78,19 +77,20 @@
 <p class="end-message" id="endMessage"></p>
 
 <script>
+  // Image filenames corresponding to bottles
   const bottleImages = [
-    "bottle_1.png",
-    "bottle_2.png",
-    "bottle_3.png",
-    "bottle_4.png",
-    "bottle_5.png"
+    "bottle_1.png",  // red
+    "bottle_2.png",  // blue
+    "bottle_3.png",  // green
+    "bottle_4.png",  // yellow
+    "bottle_5.png"   // purple
   ];
 
   const groundTruth = [...bottleImages].sort(() => Math.random() - 0.5);
   let currentOrder = [...bottleImages].sort(() => Math.random() - 0.5);
+  let selected = [];
   let tries = 0;
   let gameOver = false;
-  let dragSrcIndex = null;
 
   const bottlesDiv = document.getElementById("bottles");
   const feedback = document.getElementById("feedback");
@@ -103,46 +103,28 @@
       const img = document.createElement("img");
       img.src = imgSrc;
       img.className = "bottle";
-      img.draggable = true;
       img.dataset.index = index;
-
-      img.addEventListener("dragstart", (e) => {
-        if (gameOver) return;
-        dragSrcIndex = +e.target.dataset.index;
-        e.dataTransfer.effectAllowed = "move";
-        e.target.classList.add("dragging");
-      });
-
-      img.addEventListener("dragend", (e) => {
-        e.target.classList.remove("dragging");
-      });
-
-      img.addEventListener("dragover", (e) => {
-        if (gameOver) return;
-        e.preventDefault();
-        e.dataTransfer.dropEffect = "move";
-        e.target.classList.add("over");
-      });
-
-      img.addEventListener("dragleave", (e) => {
-        e.target.classList.remove("over");
-      });
-
-      img.addEventListener("drop", (e) => {
-        e.preventDefault();
-        const dropIndex = +e.target.dataset.index;
-        e.target.classList.remove("over");
-
-        if (dragSrcIndex !== null && dragSrcIndex !== dropIndex) {
-          swapBottles(dragSrcIndex, dropIndex);
-          tries++;
-          checkCorrect();
-          renderBottles();
-        }
-      });
-
+      if (selected.includes(index)) img.classList.add("selected");
+      img.onclick = () => handleClick(index);
       bottlesDiv.appendChild(img);
     });
+  }
+
+  function handleClick(index) {
+    if (gameOver) return;
+
+    if (selected.includes(index)) {
+      selected = selected.filter(i => i !== index);
+    } else {
+      selected.push(index);
+      if (selected.length === 2) {
+        swapBottles(selected[0], selected[1]);
+        selected = [];
+        tries++;
+        checkCorrect();
+      }
+    }
+    renderBottles();
   }
 
   function swapBottles(i, j) {
