@@ -5,52 +5,71 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Breakout Game</title>
   <style>
-    html, body {
-  margin: 0;
-  padding: 0;
+     body {
+    margin: 0;
+    padding: 0;
+    background: #000;
+    color: white;
+    font-family: sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-y: auto;
+  }
+
+  button {
+    margin: 5px;
+    padding: 10px 16px;
+    font-size: 16px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+  }
+
+  #scanBtn { background: #2196F3; color: white; }
+  #connectBtn { background: #4CAF50; color: white; }
+  #streamBtn { background: #FFC107; color: black; }
+  #disconnectBtn { background: #f44336; color: white; }
+  #startBtn { background: #9C27B0; color: white; }
+
+  #consoleOutput {
   background: #000;
-  overflow: hidden;
-  touch-action: manipulation;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
+  color: #0f0;
+  padding: 10px;
+  margin: 10px auto;
+  max-width: 480px;
+  font-family: monospace;
+  font-size: 14px;
+  border: 1px solid #0f0;
+  width: 90%;
+
+  /* limit to 3 lines */
+  line-height: 1.4em;
+  max-height: calc(1.4em * 3);
+  overflow-y: auto;
 }
 
 canvas {
   background: #111;
   border: 2px solid #fff;
   width: 100%;
-  height: auto;
   max-width: 480px;
-  max-height: 720px;
-}
-#startBtn {
-  position: absolute;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 10px 20px;
-  font-size: 18px;
-  z-index: 10;
-  background: #0f0;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
+  height: auto;
+  max-height: 540px; /* was 720px, now reduced to 3/4 */
+  margin-bottom: 20px;
 }
 
 
   </style>
 </head>
 <body>
-	<button id="scanBtn">🔍 Scan Bluetooth</button>
-<button id="connectBtn" disabled>🔗 Connect</button>
-<button id="streamBtn" disabled>📡 Start Streaming</button>
-<button id="disconnectBtn" disabled>❌ Disconnect</button>
-<p id="deviceName">No device selected</p>
-<pre id="consoleOutput" style="background:#000; color:#0f0; padding:10px; margin:10px auto; max-width:480px; font-family:monospace; font-size:14px; border:1px solid #0f0;"></pre>
-	<button id="startBtn">▶️ Start Game</button>
-
+  <button id="scanBtn">🔍 Scan Bluetooth</button>
+  <button id="connectBtn" disabled>🔗 Connect</button>
+  <button id="streamBtn" disabled>📡 Start Streaming</button>
+  <button id="disconnectBtn" disabled>❌ Disconnect</button>
+  <p id="deviceName">No device selected</p>
+  <pre id="consoleOutput"></pre>
+  <button id="startBtn">▶️ Start Game</button>
   <canvas id="breakout"></canvas>
 
   <script>
@@ -198,7 +217,7 @@ function appendToConsole(text) {
 
     function resizeCanvas() {
 	  const maxWidth = 480;
-	  const maxHeight = 720;
+      const maxHeight = 540; // 3/4 of 720
 	  const scale = Math.min(window.innerWidth / maxWidth, window.innerHeight / maxHeight);
 
 	  canvas.width = maxWidth;
