@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Bottle Swap Game</title>
   <style>
     body {
@@ -27,10 +27,6 @@
       transition: transform 0.2s, border-color 0.2s;
     }
 
-    .bottle:active {
-      transform: scale(1.05);
-    }
-
     .selected {
       border-color: black;
     }
@@ -50,18 +46,32 @@
       margin-top: 20px;
     }
 
+    #retryButton {
+      display: none;
+      margin-top: 15px;
+      padding: 10px 20px;
+      font-size: 1em;
+      background-color: #444;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    #retryButton:hover {
+      background-color: #222;
+    }
+
+    select {
+      padding: 5px;
+      font-size: 1em;
+      margin-top: 10px;
+    }
+
     @media (max-width: 500px) {
       .bottle {
         width: 50px;
         height: 120px;
-      }
-
-      h2 {
-        font-size: 1.3em;
-      }
-
-      #feedback {
-        font-size: 1em;
       }
     }
   </style>
@@ -69,25 +79,34 @@
 <body>
 
 <h2>🔄 Bottle Guessing Game</h2>
-<p>Tap two bottles to swap. You have 8 tries to get them in the correct order.</p>
+<p>Tap two bottles to swap. You have 8 tries to guess the order.</p>
+
+<label for="difficulty">Difficulty:</label>
+<select id="difficulty">
+  <option value="3">3 Bottles</option>
+  <option value="4">4 Bottles</option>
+  <option value="5" selected>5 Bottles</option>
+</select>
 
 <div class="bottle-container" id="bottles"></div>
 <p id="feedback"></p>
 <p id="tries">Tries: 0 / 8</p>
 <p class="end-message" id="endMessage"></p>
+<button id="retryButton" onclick="startGame()">🔁 Retry Game</button>
 
 <script>
-  // Image filenames corresponding to bottles
-  const bottleImages = [
-    "bottle_1.png",  // red
-    "bottle_2.png",  // blue
-    "bottle_3.png",  // green
-    "bottle_4.png",  // yellow
-    "bottle_5.png"   // purple
+  const allBottleImages = [
+    "bottle_1.png",
+    "bottle_2.png",
+    "bottle_3.png",
+    "bottle_4.png",
+    "bottle_5.png"
   ];
 
-  const groundTruth = [...bottleImages].sort(() => Math.random() - 0.5);
-  let currentOrder = [...bottleImages].sort(() => Math.random() - 0.5);
+  let numBottles = 5;
+  let bottleImages = [];
+  let groundTruth = [];
+  let currentOrder = [];
   let selected = [];
   let tries = 0;
   let gameOver = false;
@@ -96,6 +115,29 @@
   const feedback = document.getElementById("feedback");
   const triesText = document.getElementById("tries");
   const endMessage = document.getElementById("endMessage");
+  const difficultySelect = document.getElementById("difficulty");
+  const retryButton = document.getElementById("retryButton");
+
+  difficultySelect.addEventListener("change", () => {
+    numBottles = parseInt(difficultySelect.value);
+    startGame();
+  });
+
+  function startGame() {
+    bottleImages = allBottleImages.slice(0, numBottles);
+    groundTruth = [...bottleImages].sort(() => Math.random() - 0.5);
+    currentOrder = [...bottleImages].sort(() => Math.random() - 0.5);
+    selected = [];
+    tries = 0;
+    gameOver = false;
+
+    feedback.textContent = "";
+    endMessage.textContent = "";
+    triesText.textContent = `Tries: 0 / 8`;
+    retryButton.style.display = "none";
+
+    renderBottles();
+  }
 
   function renderBottles() {
     bottlesDiv.innerHTML = "";
@@ -147,9 +189,13 @@
       endMessage.textContent = "❌ You lose!";
       gameOver = true;
     }
+
+    if (gameOver) {
+      retryButton.style.display = "inline-block";
+    }
   }
 
-  renderBottles();
+  startGame();
 </script>
 
 </body>
