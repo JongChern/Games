@@ -12,6 +12,11 @@ function play(playerChoice) {
   computerImage.alt = computerChoice;
   computerImage.classList.remove('hidden');
 
+  // Hide after 3 seconds (3000 ms)
+  setTimeout(() => {
+    computerImage.classList.add('hidden');
+  }, 1500);
+
   let resultText = '';
   let resultClass = '';
 
@@ -47,9 +52,9 @@ function play(playerChoice) {
   document.getElementById('winStreak').innerText = winStreak;
 
   // Fixed next-game odds (fair game = 1/3)
-  document.getElementById('nextOdds').innerText = '33.33%';
+  //document.getElementById('nextOdds').innerText = '33.33%';
 
   // Compound odds for winning streak
-  const streakOdds = winStreak === 0 ? 100 : Math.pow(1 / 3, winStreak) * 100;
-  document.getElementById('streakOdds').innerText = `${streakOdds.toFixed(2)}%`;
+  //const streakOdds = winStreak === 0 ? 100 : Math.pow(1 / 3, winStreak) * 100;
+  //document.getElementById('streakOdds').innerText = `${streakOdds.toFixed(2)}%`;
 }
