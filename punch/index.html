@@ -64,6 +64,17 @@
       transition: opacity 0.1s ease;
       margin: 0 auto;
     }
+	
+#banner {
+  width: 100%;
+  max-width: 720px;
+  margin: 10px auto 0;
+  background-image: url('banner.png');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  aspect-ratio: 3 / 1;
+}
   </style>
 </head>
 <body>
@@ -79,6 +90,8 @@
   <p id="scoreDisplay">💥 Max Punch Score: 0</p>
   <p id="punchCounter">🥊 Punch Count: 0</p>
   <p id="statusConsole">Status: Ready</p>
+  <!-- Insert this just before the punching bag div -->
+<div id="banner"></div>
   <div id="punchingBag"></div>
 
   <script>
@@ -112,7 +125,8 @@
       try {
         selectedDevice = await navigator.bluetooth.requestDevice({ filters: [{ services: [SERVICE_UUID] }] });
         document.getElementById("connectBtn").disabled = false;
-        updateStatus("Device selected");
+		const name = selectedDevice.name || "Unnamed Device";
+        updateStatus("Device selected: " + name);
       } catch (error) {
         updateStatus("Scan failed");
         console.error("Scan failed", error);
