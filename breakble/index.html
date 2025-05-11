@@ -80,12 +80,11 @@ canvas {
   <button id="connectBtn" disabled>🔗 Connect</button>
   <button id="streamBtn" disabled>📡 Start Streaming</button>
   <button id="disconnectBtn" disabled>❌ Disconnect</button>
-  <button id="debugBtn">🐞 Debug</button>
   <button id="startBtn">▶️ Start Game</button>
   <p id="deviceName">No device selected</p>
 </div>
 
-<div id="consoleWrapper" style="display: none;">
+<div id="consoleWrapper" ">
   <pre id="consoleOutput"></pre>
 </div>
 
@@ -115,20 +114,33 @@ document.getElementById("scanBtn").addEventListener("click", async () => {
     console.error("Scan failed:", error);
   }
 });
-document.getElementById("disconnectBtn").addEventListener("click", () => {
-  if (selectedDevice && selectedDevice.gatt.connected) {
-    selectedDevice.gatt.disconnect();
-    appendToConsole("🔌 Disconnected from device");
-  } else {
-    appendToConsole("⚠️ No device was connected");
+document.getElementById("disconnectBtn").addEventListener("click", async () => {
+  try {
+    // ✅ Stop notifications if enabled
+    if (txCharacteristic) {
+      await txCharacteristic.stopNotifications();
+      txCharacteristic.removeEventListener('characteristicvaluechanged', handleNotifications);
+    }
+
+    // ✅ Disconnect if connected
+    if (selectedDevice && selectedDevice.gatt && selectedDevice.gatt.connected) {
+      selectedDevice.gatt.disconnect();
+      appendToConsole("🔌 Disconnected from device");
+    } else {
+      appendToConsole("⚠️ No device was connected");
+    }
+  } catch (error) {
+    console.warn("Error during disconnect:", error);
+    appendToConsole("❌ Error during disconnect");
   }
 
-  // Reset UI
+  // ✅ Reset UI
   document.getElementById("deviceName").textContent = "No device selected";
   document.getElementById("connectBtn").disabled = true;
   document.getElementById("streamBtn").disabled = true;
   document.getElementById("disconnectBtn").disabled = true;
 
+  // ✅ Clear BLE references
   selectedDevice = null;
   server = null;
   rxCharacteristic = null;
@@ -154,7 +166,7 @@ document.getElementById("connectBtn").addEventListener("click", async () => {
 	document.getElementById("disconnectBtn").disabled = false;
 	setInterval(() => {
 	  const now = Date.now();
-	  if (latestGyroSample && now - lastPrintedTime >= 200) {
+	  if (latestGyroSample && now - lastPrintedTime >= 10) {
 		const { gyro_x, gyro_y, gyro_z } = latestGyroSample;
 		appendToConsole(`GYRO ➤ x: ${gyro_x}, y: ${gyro_y}, z: ${gyro_z}`);
 		lastPrintedTime = now;
