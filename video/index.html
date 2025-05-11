@@ -176,7 +176,7 @@
     await sleep(200);
 
     // 2. Send sensor config: 0x08 0x00 0x02 0x00 (4 bytes) 
-    const configCommand = new Uint8Array([0x08, 0x00, 0x02, 0x00]); 
+    const configCommand = new Uint8Array([0x08, 0x00, 0x01, 0x00]); 
     await rxCharacteristic.writeValue(configCommand);
     console.log("Sent 0x08 command");
     await sleep(200);
@@ -200,84 +200,80 @@
 	function sleep(ms) {
 	  return new Promise(resolve => setTimeout(resolve, ms));
 	}
+function updatePPGChart(ppgValue) {
+  if (ppgChart.data.labels.length > 512) {
+    ppgChart.data.labels.shift();
+    ppgChart.data.datasets[0].data.shift();
+  }
+  ppgChart.data.labels.push('');
+  ppgChart.data.datasets[0].data.push(ppgValue);
+  ppgChart.update();
+}
+function handleNotifications(event) {
+  const value = new Uint8Array(event.target.value.buffer);
+  const newBuffer = new Uint8Array(receiveBuffer.length + value.length);
+  newBuffer.set(receiveBuffer);
+  newBuffer.set(value, receiveBuffer.length);
+  receiveBuffer = newBuffer;
 
-    function handleNotifications(event) {
-      const value = new Uint8Array(event.target.value.buffer);
-      const newBuffer = new Uint8Array(receiveBuffer.length + value.length);
-      newBuffer.set(receiveBuffer);
-      newBuffer.set(value, receiveBuffer.length);
-      receiveBuffer = newBuffer;
+  // Check for ACK
+  if (receiveBuffer.length === 1 && receiveBuffer[0] === 0xFF) {
+    receiveBuffer = new Uint8Array(0);
+    return;
+  }
 
-      if (receiveBuffer.length === 1 && receiveBuffer[0] === 0xFF) {
-        receiveBuffer = new Uint8Array(0);
-        return;
-      }
+  let offset = 0;
+  while (receiveBuffer.length - offset >= 6) {
+    if (receiveBuffer[offset] === 0x00) {
+      const packet = receiveBuffer.slice(offset, offset + 6);
+      const view = new DataView(packet.buffer);
 
-      let offset = 0;
-      while (receiveBuffer.length - offset >= 10) {
-        if (receiveBuffer[offset] === 0x00) {
-          const packet = receiveBuffer.slice(offset, offset + 10);
-          const view = new DataView(packet.buffer);
-          const gyro_z = view.getInt16(8, true);
-          latestGyroZ = gyro_z;
-          offset += 10;
-        } else {
-          offset += 1;
-        }
-      }
-      receiveBuffer = receiveBuffer.slice(offset);
+      // Extract PPG signal (last 2 bytes)
+      const ppg = view.getInt16(4, true);
+      updatePPGChart(ppg);
+
+      offset += 6;
+    } else {
+      offset += 1; // resync
     }
+  }
+
+  receiveBuffer = receiveBuffer.slice(offset);
+}
 
     // === Chart.js Setup ===
     const ctx = document.getElementById('gyroChart').getContext('2d');
-    const chart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: [],
-        datasets: [{
-          label: 'Gyro Z',
-          data: [],
-          borderColor: 'lime',
-          borderWidth: 2,
-          tension: 0.1,
-          pointRadius: 0,
-        }]
-      },
-      options: {
-        scales: {
-          x: {
-            display: false
-          },
-          y: {
-            beginAtZero: false
-          }
-        },
-        animation: false,
-        responsive: true,
-        plugins: {
-          legend: {
-            labels: {
-              color: 'white'
-            }
-          }
-        }
+const ppgChart = new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [{
+      label: 'PPG Signal',
+      data: [],
+      borderColor: 'cyan',
+      borderWidth: 2,
+      tension: 0.1,
+      pointRadius: 0,
+    }]
+  },
+  options: {
+    animation: false,
+    responsive: true,
+    scales: {
+      x: { display: false },
+      y: {
+        title: { display: true, text: 'PPG' },
+        beginAtZero: false
       }
-    });
+    },
+    plugins: {
+      legend: {
+        labels: { color: 'white' }
+      }
+    }
+  }
+});
 
-    // Push data every 200ms
-    setInterval(() => {
-      const now = Date.now();
-      if (now - lastPrintedTime >= 200) {
-        if (chart.data.labels.length > 50) {
-          chart.data.labels.shift();
-          chart.data.datasets[0].data.shift();
-        }
-        chart.data.labels.push('');
-        chart.data.datasets[0].data.push(latestGyroZ);
-        chart.update();
-        lastPrintedTime = now;
-      }
-    }, 50);
   </script>
 </body>
 </html>
