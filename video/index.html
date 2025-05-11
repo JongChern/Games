@@ -120,47 +120,86 @@
     });
 
    document.getElementById("disconnectBtn").addEventListener("click", async () => {
-	  try {
-		// Safely stop notifications first
-		if (txCharacteristic) {
-		  await txCharacteristic.stopNotifications();
-		  txCharacteristic.removeEventListener('characteristicvaluechanged', handleNotifications);
-		}
+  try {
+    // ✅ Only attempt stopNotifications if connected and characteristic is available
+    if (txCharacteristic && selectedDevice?.gatt?.connected) {
+      try {
+        await txCharacteristic.stopNotifications();
+        txCharacteristic.removeEventListener('characteristicvaluechanged', handleNotifications);
+        console.log("✅ Notifications stopped");
+      } catch (notifyError) {
+        console.warn("⚠️ Error stopping notifications (ignored):", notifyError);
+      }
+    }
 
-		// Now disconnect the device
-		if (selectedDevice && selectedDevice.gatt) {
-		  selectedDevice.gatt.disconnect();
-		  console.log("✅ Disconnected cleanly");
-		}
-	  } catch (err) {
-		console.warn("Disconnect error:", err);
-	  }
+    // ✅ Disconnect if still connected
+    if (selectedDevice?.gatt?.connected) {
+      selectedDevice.gatt.disconnect();
+      console.log("✅ Device disconnected cleanly");
+    } else {
+      console.log("ℹ️ Device already disconnected");
+    }
+  } catch (err) {
+    console.warn("❌ Disconnect error:", err);
+  }
 
-	  // Clean up state
-	  document.getElementById("deviceName").textContent = "No device selected";
-	  document.getElementById("connectBtn").disabled = true;
-	  document.getElementById("streamBtn").disabled = true;
-	  document.getElementById("disconnectBtn").disabled = true;
+  // ✅ Reset UI state
+  document.getElementById("deviceName").textContent = "No device selected";
+  document.getElementById("connectBtn").disabled = true;
+  document.getElementById("streamBtn").disabled = true;
+  document.getElementById("disconnectBtn").disabled = true;
 
-	  selectedDevice = null;
-	  server = null;
-	  rxCharacteristic = null;
-	  txCharacteristic = null;
-	});
+  // ✅ Reset all references
+  selectedDevice = null;
+  server = null;
+  rxCharacteristic = null;
+  txCharacteristic = null;
+
+  // Optional: stop paddle movement or cleanup animation
+  leftPressed = false;
+  rightPressed = false;
+});
+
 
 
     document.getElementById("streamBtn").addEventListener("click", async () => {
-      if (!rxCharacteristic) {
-        alert("Not connected to device.");
-        return;
-      }
-      const data = new Uint8Array([0x07]);
-      try {
-        await rxCharacteristic.writeValue(data);
-      } catch (err) {
-        console.error("Write failed:", err);
-      }
-    });
+  if (!rxCharacteristic) {
+    alert("Not connected to device.");
+    return;
+  }
+
+  try {
+    // 1. Send sampling rate: 0x05 + low/high bytes of 32768/51.2 = 640 = 0x0280
+    const samplingCommand = new Uint8Array([0x05, 0x80, 0x02]);
+    await rxCharacteristic.writeValue(samplingCommand);
+    console.log("Sent 0x05 command");
+    await sleep(200);
+
+    // 2. Send sensor config: 0x08 0x00 0x02 0x00 (4 bytes) 
+    const configCommand = new Uint8Array([0x08, 0x00, 0x02, 0x00]); 
+    await rxCharacteristic.writeValue(configCommand);
+    console.log("Sent 0x08 command");
+    await sleep(200);
+
+    // 3. (Optional) Skip 0x5E if unknown
+    const expPower = new Uint8Array([0x5E, 0x01]);
+    await rxCharacteristic.writeValue(expPower);
+    console.log("Sent 0x5E command");
+    await sleep(200);
+
+    // 4. Start streaming: 0x07
+    const startCommand = new Uint8Array([0x07]);
+    await rxCharacteristic.writeValue(startCommand);
+    console.log("Sent 0x07 (start streaming)");
+  } catch (err) {
+    console.error("Stream command sequence failed:", err);
+  }
+});
+
+	
+	function sleep(ms) {
+	  return new Promise(resolve => setTimeout(resolve, ms));
+	}
 
     function handleNotifications(event) {
       const value = new Uint8Array(event.target.value.buffer);
