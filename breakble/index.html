@@ -195,15 +195,40 @@ document.getElementById("streamBtn").addEventListener("click", async () => {
     alert("Not connected to device.");
     return;
   }
-  const data = new Uint8Array([0x07]);
+
   try {
-    await rxCharacteristic.writeValue(data);
-    appendToConsole("➡️ Sent 0x07 to device");
+    // Step 1: Calculate and send sampling rate command (0x05 XX XX)
+    const rate = 51.2;
+    const samplingValue = Math.floor(32768 / rate);
+    const lowByte = samplingValue & 0xFF;
+    const highByte = (samplingValue >> 8) & 0xFF;
+    const samplingCommand = new Uint8Array([0x05, 0x80, 0x02]);
+    await rxCharacteristic.writeValue(samplingCommand);
+	    // Step 3: Wait 200ms
+    await sleep(200);
+    appendToConsole(`➡️ Sent sampling rate: 0x05 ${lowByte.toString(16)} ${highByte.toString(16)}`);
+
+    // Step 2: Send 0x08 0x00 0x40
+    const configCommand = new Uint8Array([0x08, 0x40, 0x00, 0x00]);
+    await rxCharacteristic.writeValue(configCommand);
+    appendToConsole("➡️ Sent config: 0x08 0x40 0x00 0x00");
+
+    // Step 3: Wait 200ms
+    await sleep(200);
+
+    // Step 4: Send 0x07 to start streaming
+    const streamCommand = new Uint8Array([0x07]);
+    await rxCharacteristic.writeValue(streamCommand);
+    appendToConsole("➡️ Sent start streaming: 0x07");
   } catch (err) {
     console.error("Write failed:", err);
-    appendToConsole("❌ Failed to send 0x07");
+    appendToConsole("❌ Failed to send stream command");
   }
 });
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 function handleNotifications(event) {
   const value = new Uint8Array(event.target.value.buffer);
@@ -215,8 +240,19 @@ function handleNotifications(event) {
   receiveBuffer = newBuffer;
 
   let offset = 0;
-  while (receiveBuffer.length - offset >= 10) {
-    if (receiveBuffer[offset] === 0x00) {
+
+  while (receiveBuffer.length - offset > 0) {
+    const remaining = receiveBuffer.length - offset;
+
+    // ✅ Handle ACK (0xFF) - single byte
+    if (receiveBuffer[offset] === 0xFF && remaining === 1) {
+      appendToConsole("✅ ACK received (0xFF)");
+      offset += 1;
+      break;
+    }
+
+    // ✅ Handle 10-byte data packet (starting with 0x00)
+    if (remaining >= 10 && receiveBuffer[offset] === 0x00) {
       const packet = receiveBuffer.slice(offset, offset + 10);
       const view = new DataView(packet.buffer);
 
@@ -224,15 +260,15 @@ function handleNotifications(event) {
       const gyro_y = view.getInt16(6, true);
       const gyro_z = view.getInt16(8, true);
 
-      // Save the latest sample
       latestGyroSample = { gyro_x, gyro_y, gyro_z };
-
       offset += 10;
     } else {
-      offset += 1; // resync if not starting with 0x00
+      // Not a recognized packet start, move one byte forward (resync)
+      offset += 1;
     }
   }
 
+  // Keep any leftover unprocessed bytes
   receiveBuffer = receiveBuffer.slice(offset);
 }
 
