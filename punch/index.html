@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Arcade Punching Bag</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: black;
+      color: white;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: start;
+      height: 100vh;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+
+    #controls {
+      margin: 15px 0;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    button {
+      padding: 10px 16px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+    }
+
+    #scanBtn { background: #2196F3; color: white; }
+    #connectBtn { background: #4CAF50; color: white; }
+    #streamBtn { background: #FFC107; color: black; }
+    #disconnectBtn { background: #f44336; color: white; }
+    #resetScoreBtn { background: #9C27B0; color: white; }
+
+    #scoreDisplay, #statusConsole, #punchCounter {
+      margin: 10px 0;
+      font-size: 18px;
+      font-family: monospace;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 90vw;
+      text-align: center;
+    }
+
+    #punchingBag {
+      width: min(90vw, 360px);
+      height: calc(min(90vw, 360px) * 1.5);
+      background-image: url('idle.png');
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: contain;
+      image-rendering: pixelated;
+      transition: opacity 0.1s ease;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="controls">
+    <button id="scanBtn">🔍 Scan Bluetooth</button>
+    <button id="connectBtn" disabled>🔗 Connect</button>
+    <button id="streamBtn" disabled>📡 Start Streaming</button>
+    <button id="disconnectBtn" disabled>❌ Disconnect</button>
+    <button id="resetScoreBtn">🔁 Reset Score</button>
+  </div>
+
+  <p id="scoreDisplay">💥 Max Punch Score: 0</p>
+  <p id="punchCounter">🥊 Punch Count: 0</p>
+  <p id="statusConsole">Status: Ready</p>
+  <div id="punchingBag"></div>
+
+  <script>
+    let selectedDevice = null;
+    let server = null;
+    let rxCharacteristic = null;
+    let txCharacteristic = null;
+    let receiveBuffer = new Uint8Array(0);
+    let maxGyro = 0;
+    let punchTimeout = null;
+    let punchCount = 0;
+    const PUNCH_THRESHOLD = 1000;
+
+    const SERVICE_UUID = '65333333-a115-11e2-9e9a-0800200ca100';
+    const CHAR_RX_UUID = '65333333-a115-11e2-9e9a-0800200ca102';
+    const CHAR_TX_UUID = '65333333-a115-11e2-9e9a-0800200ca101';
+
+    function updateScoreDisplay(value) {
+      document.getElementById("scoreDisplay").textContent = `💥 Max Punch Score: ${value}`;
+    }
+
+    function updatePunchCount(value) {
+      document.getElementById("punchCounter").textContent = `🥊 Punch Count: ${value}`;
+    }
+
+    function updateStatus(text) {
+      document.getElementById("statusConsole").textContent = `Status: ${text}`;
+    }
+
+    document.getElementById("scanBtn").addEventListener("click", async () => {
+      try {
+        selectedDevice = await navigator.bluetooth.requestDevice({ filters: [{ services: [SERVICE_UUID] }] });
+        document.getElementById("connectBtn").disabled = false;
+        updateStatus("Device selected");
+      } catch (error) {
+        updateStatus("Scan failed");
+        console.error("Scan failed", error);
+      }
+    });
+
+    document.getElementById("connectBtn").addEventListener("click", async () => {
+      try {
+        server = await selectedDevice.gatt.connect();
+        const service = await server.getPrimaryService(SERVICE_UUID);
+        rxCharacteristic = await service.getCharacteristic(CHAR_RX_UUID);
+        txCharacteristic = await service.getCharacteristic(CHAR_TX_UUID);
+
+        await txCharacteristic.startNotifications();
+        txCharacteristic.addEventListener('characteristicvaluechanged', handleNotifications);
+
+        document.getElementById("streamBtn").disabled = false;
+        document.getElementById("disconnectBtn").disabled = false;
+        updateStatus("Connected");
+      } catch (error) {
+        updateStatus("Connection failed");
+        console.error("Connection failed", error);
+      }
+    });
+
+    document.getElementById("disconnectBtn").addEventListener("click", async () => {
+      try {
+        if (txCharacteristic) {
+          await txCharacteristic.stopNotifications();
+          txCharacteristic.removeEventListener('characteristicvaluechanged', handleNotifications);
+        }
+        if (selectedDevice?.gatt?.connected) selectedDevice.gatt.disconnect();
+        updateStatus("Disconnected");
+      } catch (err) {
+        updateStatus("Disconnect error");
+        console.error("Disconnect error", err);
+      }
+
+      document.getElementById("connectBtn").disabled = true;
+      document.getElementById("streamBtn").disabled = true;
+      document.getElementById("disconnectBtn").disabled = true;
+    });
+
+    document.getElementById("streamBtn").addEventListener("click", async () => {
+      if (!rxCharacteristic) return alert("Not connected to device.");
+      try {
+        await rxCharacteristic.writeValue(new Uint8Array([0x07]));
+        updateStatus("Streaming...");
+      } catch (err) {
+        updateStatus("Stream command failed");
+        console.error("Stream command failed", err);
+      }
+    });
+
+    document.getElementById("resetScoreBtn").addEventListener("click", () => {
+      maxGyro = 0;
+      punchCount = 0;
+      updateScoreDisplay(0);
+      updatePunchCount(0);
+      updateStatus("Score reset");
+    });
+
+    document.getElementById("punchingBag").style.backgroundImage = "url('idle.png')";
+
+    function handleNotifications(event) {
+      const value = new Uint8Array(event.target.value.buffer);
+      const newBuffer = new Uint8Array(receiveBuffer.length + value.length);
+      newBuffer.set(receiveBuffer);
+      newBuffer.set(value, receiveBuffer.length);
+      receiveBuffer = newBuffer;
+
+      let offset = 0;
+      while (receiveBuffer.length - offset >= 10) {
+        if (receiveBuffer[offset] === 0x00) {
+          const packet = receiveBuffer.slice(offset, offset + 10);
+          const view = new DataView(packet.buffer);
+
+          const gyro_z = view.getInt16(8, true);
+          updateStatus(`Gyro Z: ${gyro_z}`);
+
+          if (Math.abs(gyro_z) > PUNCH_THRESHOLD) {
+            const bag = document.getElementById("punchingBag");
+            bag.style.backgroundImage = "url('punch.png')";
+            clearTimeout(punchTimeout);
+            punchTimeout = setTimeout(() => bag.style.backgroundImage = "url('idle.png')", 1000);
+
+            punchCount++;
+            updatePunchCount(punchCount);
+
+            if (Math.abs(gyro_z) > maxGyro) {
+              maxGyro = Math.abs(gyro_z);
+              updateScoreDisplay(maxGyro);
+            }
+          }
+
+          offset += 10;
+        } else {
+          offset += 1;
+        }
+      }
+      receiveBuffer = receiveBuffer.slice(offset);
+    }
+  </script>
+</body>
+</html>
