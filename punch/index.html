@@ -87,10 +87,10 @@
     let rxCharacteristic = null;
     let txCharacteristic = null;
     let receiveBuffer = new Uint8Array(0);
-    let maxGyro = 0;
+    let maxAccel = 0;
     let punchTimeout = null;
     let punchCount = 0;
-    const PUNCH_THRESHOLD = 1000;
+    const PUNCH_THRESHOLD = 20;
 
     const SERVICE_UUID = '65333333-a115-11e2-9e9a-0800200ca100';
     const CHAR_RX_UUID = '65333333-a115-11e2-9e9a-0800200ca102';
@@ -159,8 +159,12 @@
     document.getElementById("streamBtn").addEventListener("click", async () => {
       if (!rxCharacteristic) return alert("Not connected to device.");
       try {
+        await rxCharacteristic.writeValue(new Uint8Array([0x05, 0x80, 0x02]));
+        await sleep(200);
+        await rxCharacteristic.writeValue(new Uint8Array([0x08, 0x00, 0x00, 0x40]));
+        await sleep(200);
         await rxCharacteristic.writeValue(new Uint8Array([0x07]));
-        updateStatus("Streaming...");
+        updateStatus("Start command sent");
       } catch (err) {
         updateStatus("Stream command failed");
         console.error("Stream command failed", err);
@@ -168,14 +172,25 @@
     });
 
     document.getElementById("resetScoreBtn").addEventListener("click", () => {
-      maxGyro = 0;
+      maxAccel = 0;
       punchCount = 0;
       updateScoreDisplay(0);
       updatePunchCount(0);
       updateStatus("Score reset");
     });
 
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
     document.getElementById("punchingBag").style.backgroundImage = "url('idle.png')";
+
+    function twosComplement(val, bits) {
+      if (val & (1 << (bits - 1))) {
+        val = val - (1 << bits);
+      }
+      return val;
+    }
 
     function handleNotifications(event) {
       const value = new Uint8Array(event.target.value.buffer);
@@ -185,15 +200,27 @@
       receiveBuffer = newBuffer;
 
       let offset = 0;
-      while (receiveBuffer.length - offset >= 10) {
-        if (receiveBuffer[offset] === 0x00) {
+      while (offset < receiveBuffer.length) {
+        const remaining = receiveBuffer.length - offset;
+
+        if (receiveBuffer[offset] === 0xFF && remaining === 1) {
+          updateStatus("✅ ACK received (0xFF)");
+          offset += 1;
+          continue;
+        }
+
+        if (remaining >= 10 && receiveBuffer[offset] === 0x00) {
           const packet = receiveBuffer.slice(offset, offset + 10);
-          const view = new DataView(packet.buffer);
 
-          const gyro_z = view.getInt16(8, true);
-          updateStatus(`Gyro Z: ${gyro_z}`);
+          const ax = ((packet[4] & 0xFF) << 4) | (packet[5] >> 4);
+          const ay = ((packet[6] & 0xFF) << 4) | (packet[7] >> 4);
+          const az = ((packet[8] & 0xFF) << 4) | (packet[9] >> 4);
 
-          if (Math.abs(gyro_z) > PUNCH_THRESHOLD) {
+          const accel_z = twosComplement(az, 12);
+
+          updateStatus(`Accel Z: ${accel_z}`);
+
+          if (Math.abs(accel_z) > PUNCH_THRESHOLD) {
             const bag = document.getElementById("punchingBag");
             bag.style.backgroundImage = "url('punch.png')";
             clearTimeout(punchTimeout);
@@ -202,12 +229,11 @@
             punchCount++;
             updatePunchCount(punchCount);
 
-            if (Math.abs(gyro_z) > maxGyro) {
-              maxGyro = Math.abs(gyro_z);
-              updateScoreDisplay(maxGyro);
+            if (Math.abs(accel_z) > maxAccel) {
+              maxAccel = Math.abs(accel_z);
+              updateScoreDisplay(maxAccel);
             }
           }
-
           offset += 10;
         } else {
           offset += 1;
