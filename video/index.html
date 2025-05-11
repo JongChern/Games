@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BLE + YouTube + Gyro Plot</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #000;
+      color: white;
+      font-family: sans-serif;
+      text-align: center;
+    }
+
+    #controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    button {
+      padding: 10px 16px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+    }
+
+    #scanBtn { background: #2196F3; color: white; }
+    #connectBtn { background: #4CAF50; color: white; }
+    #streamBtn { background: #FFC107; color: black; }
+    #disconnectBtn { background: #f44336; color: white; }
+
+    #deviceName {
+      margin: 10px;
+    }
+
+    iframe {
+      margin: 20px auto;
+      display: block;
+      width: 100%;
+      max-width: 480px;
+      aspect-ratio: 16 / 9;
+      border: none;
+    }
+
+    #chartContainer {
+      max-width: 480px;
+      margin: 20px auto;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="controls">
+    <button id="scanBtn">🔍 Scan Bluetooth</button>
+    <button id="connectBtn" disabled>🔗 Connect</button>
+    <button id="streamBtn" disabled>📡 Start Streaming</button>
+    <button id="disconnectBtn" disabled>❌ Disconnect</button>
+  </div>
+
+  <p id="deviceName">No device selected</p>
+
+  <iframe 
+    src="https://www.youtube.com/embed/CdOQEQ3GF6c"
+    allowfullscreen>
+  </iframe>
+
+  <div id="chartContainer">
+    <canvas id="gyroChart" height="200"></canvas>
+  </div>
+
+  <script>
+    let selectedDevice = null;
+    let server = null;
+    let rxCharacteristic = null;
+    let txCharacteristic = null;
+    let receiveBuffer = new Uint8Array(0);
+    let latestGyroZ = 0;
+    let lastPrintedTime = 0;
+
+    const SERVICE_UUID = '65333333-a115-11e2-9e9a-0800200ca100';
+    const CHAR_RX_UUID = '65333333-a115-11e2-9e9a-0800200ca102';
+    const CHAR_TX_UUID = '65333333-a115-11e2-9e9a-0800200ca101';
+
+    // BLE handlers
+    document.getElementById("scanBtn").addEventListener("click", async () => {
+      try {
+        selectedDevice = await navigator.bluetooth.requestDevice({
+          filters: [{ services: [SERVICE_UUID] }]
+        });
+        document.getElementById("deviceName").textContent =
+          `Selected: ${selectedDevice.name || 'Unnamed Device'}`;
+        document.getElementById("connectBtn").disabled = false;
+      } catch (error) {
+        console.error("Scan failed:", error);
+      }
+    });
+
+    document.getElementById("connectBtn").addEventListener("click", async () => {
+      try {
+        server = await selectedDevice.gatt.connect();
+        const service = await server.getPrimaryService(SERVICE_UUID);
+        rxCharacteristic = await service.getCharacteristic(CHAR_RX_UUID);
+        txCharacteristic = await service.getCharacteristic(CHAR_TX_UUID);
+
+        await txCharacteristic.startNotifications();
+        txCharacteristic.addEventListener('characteristicvaluechanged', handleNotifications);
+
+        document.getElementById("streamBtn").disabled = false;
+        document.getElementById("disconnectBtn").disabled = false;
+      } catch (error) {
+        console.error("Connection failed:", error);
+      }
+    });
+
+   document.getElementById("disconnectBtn").addEventListener("click", async () => {
+	  try {
+		// Safely stop notifications first
+		if (txCharacteristic) {
+		  await txCharacteristic.stopNotifications();
+		  txCharacteristic.removeEventListener('characteristicvaluechanged', handleNotifications);
+		}
+
+		// Now disconnect the device
+		if (selectedDevice && selectedDevice.gatt) {
+		  selectedDevice.gatt.disconnect();
+		  console.log("✅ Disconnected cleanly");
+		}
+	  } catch (err) {
+		console.warn("Disconnect error:", err);
+	  }
+
+	  // Clean up state
+	  document.getElementById("deviceName").textContent = "No device selected";
+	  document.getElementById("connectBtn").disabled = true;
+	  document.getElementById("streamBtn").disabled = true;
+	  document.getElementById("disconnectBtn").disabled = true;
+
+	  selectedDevice = null;
+	  server = null;
+	  rxCharacteristic = null;
+	  txCharacteristic = null;
+	});
+
+
+    document.getElementById("streamBtn").addEventListener("click", async () => {
+      if (!rxCharacteristic) {
+        alert("Not connected to device.");
+        return;
+      }
+      const data = new Uint8Array([0x07]);
+      try {
+        await rxCharacteristic.writeValue(data);
+      } catch (err) {
+        console.error("Write failed:", err);
+      }
+    });
+
+    function handleNotifications(event) {
+      const value = new Uint8Array(event.target.value.buffer);
+      const newBuffer = new Uint8Array(receiveBuffer.length + value.length);
+      newBuffer.set(receiveBuffer);
+      newBuffer.set(value, receiveBuffer.length);
+      receiveBuffer = newBuffer;
+
+      if (receiveBuffer.length === 1 && receiveBuffer[0] === 0xFF) {
+        receiveBuffer = new Uint8Array(0);
+        return;
+      }
+
+      let offset = 0;
+      while (receiveBuffer.length - offset >= 10) {
+        if (receiveBuffer[offset] === 0x00) {
+          const packet = receiveBuffer.slice(offset, offset + 10);
+          const view = new DataView(packet.buffer);
+          const gyro_z = view.getInt16(8, true);
+          latestGyroZ = gyro_z;
+          offset += 10;
+        } else {
+          offset += 1;
+        }
+      }
+      receiveBuffer = receiveBuffer.slice(offset);
+    }
+
+    // === Chart.js Setup ===
+    const ctx = document.getElementById('gyroChart').getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Gyro Z',
+          data: [],
+          borderColor: 'lime',
+          borderWidth: 2,
+          tension: 0.1,
+          pointRadius: 0,
+        }]
+      },
+      options: {
+        scales: {
+          x: {
+            display: false
+          },
+          y: {
+            beginAtZero: false
+          }
+        },
+        animation: false,
+        responsive: true,
+        plugins: {
+          legend: {
+            labels: {
+              color: 'white'
+            }
+          }
+        }
+      }
+    });
+
+    // Push data every 200ms
+    setInterval(() => {
+      const now = Date.now();
+      if (now - lastPrintedTime >= 200) {
+        if (chart.data.labels.length > 50) {
+          chart.data.labels.shift();
+          chart.data.datasets[0].data.shift();
+        }
+        chart.data.labels.push('');
+        chart.data.datasets[0].data.push(latestGyroZ);
+        chart.update();
+        lastPrintedTime = now;
+      }
+    }, 50);
+  </script>
+</body>
+</html>
