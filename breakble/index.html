@@ -57,19 +57,39 @@ canvas {
   display: block;
   margin: 20px auto;
 }
+#controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center; /* center horizontally */
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  text-align: center;
+}
+
+#controls button, #controls p {
+  margin: 5px;
+}
 
 
   </style>
 </head>
 <body>
+  <div id="controls">
   <button id="scanBtn">🔍 Scan Bluetooth</button>
   <button id="connectBtn" disabled>🔗 Connect</button>
   <button id="streamBtn" disabled>📡 Start Streaming</button>
   <button id="disconnectBtn" disabled>❌ Disconnect</button>
-  <p id="deviceName">No device selected</p>
-  <pre id="consoleOutput"></pre>
+  <button id="debugBtn">🐞 Debug</button>
   <button id="startBtn">▶️ Start Game</button>
-  <canvas id="breakout"></canvas>
+  <p id="deviceName">No device selected</p>
+</div>
+
+<div id="consoleWrapper" style="display: none;">
+  <pre id="consoleOutput"></pre>
+</div>
+
+<canvas id="breakout"></canvas>
 
   <script>
   let lastPrintedTime = 0;
