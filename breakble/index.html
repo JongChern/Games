@@ -53,10 +53,12 @@ canvas {
   width: 100%;
   max-width: 480px;
   height: auto;
-  max-height: 540px; /* 3/4 of original size */
+  max-height: 540px;
   display: block;
   margin: 20px auto;
+  box-sizing: border-box; /* ✅ includes border in width calc */
 }
+
 #controls {
   display: flex;
   flex-wrap: wrap;
@@ -307,7 +309,7 @@ function appendToConsole(text) {
     let dy = -2;
 
     const brickRowCount = 5;
-    const brickColumnCount = 7;
+    const brickColumnCount = 6;
     const brickWidth = 60;
     const brickHeight = 20;
     const brickPadding = 10;
