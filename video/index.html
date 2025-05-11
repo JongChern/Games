@@ -65,6 +65,7 @@
   </div>
 
   <p id="deviceName">No device selected</p>
+<p id="statusConsole" style="color: #0f0; font-family: monospace; margin: 5px 0;"></p>
 
   <iframe 
     src="https://www.youtube.com/embed/CdOQEQ3GF6c"
@@ -114,6 +115,8 @@
 
         document.getElementById("streamBtn").disabled = false;
         document.getElementById("disconnectBtn").disabled = false;
+		document.getElementById("statusConsole").textContent = `✅ Connected to: ${selectedDevice.name || 'Unnamed Device'}`;
+
       } catch (error) {
         console.error("Connection failed:", error);
       }
@@ -148,6 +151,7 @@
   document.getElementById("connectBtn").disabled = true;
   document.getElementById("streamBtn").disabled = true;
   document.getElementById("disconnectBtn").disabled = true;
+  document.getElementById("statusConsole").textContent = `🔌 Disconnected`;
 
   // ✅ Reset all references
   selectedDevice = null;
