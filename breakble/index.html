@@ -72,7 +72,16 @@ canvas {
 #controls button, #controls p {
   margin: 5px;
 }
-
+#banner {
+  width: 100%;
+  max-width: 1000px;
+  margin: 10px auto 0;
+  background-image: url('banner.png');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  aspect-ratio: 3 / 1;
+}
 
   </style>
 </head>
@@ -89,7 +98,7 @@ canvas {
 <div id="consoleWrapper" ">
   <pre id="consoleOutput"></pre>
 </div>
-
+<div id="banner"></div>
 <canvas id="breakout"></canvas>
 
   <script>
