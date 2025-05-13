@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mini Subway Surfer</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #222;
+    }
+    canvas {
+      display: block;
+      background: linear-gradient(to top, #333, #666);
+      touch-action: none;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="400" height="600"></canvas>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const lanes = [100, 200, 300];
+    let playerLane = 1;
+    const playerY = 500;
+    const playerSize = 40;
+
+    let obstacles = [];
+    let letters = [];
+    let collectedLetters = [];
+    let targetWord = "";
+    let nextWord = "";
+    let score = 0;
+    let gameOver = false;
+
+    const MAX_WORD_LENGTH = 3;
+    const SPEED_INCREMENT = 0.05;
+    const MAX_SPEED_MULTIPLIER = 2.0;
+    const BASE_SPEED = 5;
+    let currentSpeed = BASE_SPEED;
+    let spawnInterval = 1000;
+    let spawnTimer;
+
+    let touchStartX = null;
+
+    async function preloadWord() {
+      try {
+        const res = await fetch(`https://random-word-api.herokuapp.com/word?length=${MAX_WORD_LENGTH}`);
+        const data = await res.json();
+        return data[0].toUpperCase();
+      } catch {
+        return "RUN";
+      }
+    }
+
+    async function initWords() {
+      targetWord = await preloadWord();
+      nextWord = await preloadWord();
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if ((e.key === "ArrowLeft" || e.key === "a" || e.key === "A") && playerLane > 0) {
+        playerLane--;
+      }
+      if ((e.key === "ArrowRight" || e.key === "d" || e.key === "D") && playerLane < 2) {
+        playerLane++;
+      }
+    });
+
+    canvas.addEventListener("touchstart", (e) => {
+      touchStartX = e.touches[0].clientX;
+    });
+
+    canvas.addEventListener("touchend", (e) => {
+      if (touchStartX === null) return;
+      const touchEndX = e.changedTouches[0].clientX;
+      const diffX = touchEndX - touchStartX;
+
+      if (Math.abs(diffX) > 30) {
+        if (diffX > 0 && playerLane < 2) {
+          playerLane++;
+        } else if (diffX < 0 && playerLane > 0) {
+          playerLane--;
+        }
+      }
+      touchStartX = null;
+    });
+
+    function drawPlayer() {
+      ctx.fillStyle = "white";
+      const x = lanes[playerLane];
+      const y = playerY;
+      ctx.beginPath();
+      ctx.arc(x, y, 18, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillRect(x - 10, y - 30, 6, 15);
+      ctx.fillRect(x + 4, y - 30, 6, 15);
+    }
+
+    function drawObstacle(obs) {
+      const { x, y } = obs;
+      ctx.fillStyle = "red";
+      ctx.beginPath();
+      ctx.arc(x, y + 20, 20, Math.PI, 0, false);
+      ctx.lineTo(x + 20, y + 20);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = "black";
+      ctx.lineWidth = 2;
+      for (let i = -3; i <= 3; i++) {
+        const spikeX = x + i * 6;
+        const spikeY = y + 20;
+        ctx.beginPath();
+        ctx.moveTo(spikeX, spikeY);
+        ctx.lineTo(spikeX + 3, spikeY - 6);
+        ctx.lineTo(spikeX + 6, spikeY);
+        ctx.stroke();
+      }
+    }
+
+    function drawLetter(letterObj) {
+      ctx.fillStyle = "lime";
+      ctx.fillRect(letterObj.x - playerSize / 2, letterObj.y, playerSize, playerSize);
+      ctx.fillStyle = "black";
+      ctx.font = "20px Arial";
+      ctx.fillText(letterObj.letter, letterObj.x - 6, letterObj.y + 26);
+    }
+
+    function spawnObstacle() {
+      const laneIndices = [0, 1, 2];
+      const redLanes = [];
+
+      laneIndices.forEach(lane => {
+        if (currentSpeed < BASE_SPEED * MAX_SPEED_MULTIPLIER) {
+          if (Math.random() < 0.4) redLanes.push(lane);
+        } else {
+          if (Math.random() < 0.7) redLanes.push(lane);
+        }
+      });
+
+      if (redLanes.length >= 3) redLanes.splice(Math.floor(Math.random() * redLanes.length), 1);
+      if (currentSpeed < BASE_SPEED * MAX_SPEED_MULTIPLIER && redLanes.length >= 2) redLanes.splice(Math.floor(Math.random() * redLanes.length), 1);
+
+      redLanes.forEach(lane => {
+        obstacles.push({ x: lanes[lane], y: -50 });
+      });
+
+      if (Math.random() < 0.3 && targetWord && collectedLetters.length < targetWord.length) {
+        let letterToShow;
+        if (Math.random() < 0.5) {
+          letterToShow = targetWord[collectedLetters.length];
+        } else {
+          letterToShow = targetWord[Math.floor(Math.random() * targetWord.length)];
+        }
+
+        const availableLanes = laneIndices.filter(l => !redLanes.includes(l));
+        if (availableLanes.length > 0) {
+          const lane = availableLanes[Math.floor(Math.random() * availableLanes.length)];
+          letters.push({ letter: letterToShow, x: lanes[lane], y: -50 });
+        }
+      }
+    }
+
+    function update() {
+      if (gameOver) return;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      drawPlayer();
+
+      for (let obs of obstacles) {
+        obs.y += currentSpeed;
+        drawObstacle(obs);
+
+        if (
+          obs.y + playerSize > playerY &&
+          obs.y < playerY + playerSize &&
+          obs.x === lanes[playerLane]
+        ) {
+          gameOver = true;
+          alert("Game Over! Score: " + score);
+          document.location.reload();
+        }
+      }
+
+      for (let i = letters.length - 1; i >= 0; i--) {
+        const letter = letters[i];
+        letter.y += currentSpeed;
+        drawLetter(letter);
+
+        if (
+          letter.y + playerSize > playerY &&
+          letter.y < playerY + playerSize &&
+          letter.x === lanes[playerLane]
+        ) {
+          const expected = targetWord[collectedLetters.length];
+          if (letter.letter === expected) {
+            collectedLetters.push(letter.letter);
+          } else {
+            collectedLetters = [];
+            score = Math.max(0, score - 1);
+          }
+          letters.splice(i, 1);
+        }
+      }
+
+      ctx.fillStyle = "white";
+      ctx.font = "16px Arial";
+      ctx.fillText("Collected: " + collectedLetters.join(""), 10, 20);
+      ctx.fillText("Target: " + targetWord, 10, 40);
+      ctx.fillText("Score: " + score, 10, 60);
+
+      if (collectedLetters.join("") === targetWord) {
+        score += 1;
+        collectedLetters = [];
+        currentSpeed = Math.min(currentSpeed + BASE_SPEED * SPEED_INCREMENT, BASE_SPEED * MAX_SPEED_MULTIPLIER);
+        targetWord = nextWord;
+        preloadWord().then(w => nextWord = w);
+      }
+
+      obstacles = obstacles.filter(obs => obs.y < canvas.height);
+      letters = letters.filter(letter => letter.y < canvas.height);
+    }
+
+    spawnTimer = setInterval(() => {
+      if (!gameOver) spawnObstacle();
+    }, spawnInterval);
+
+    function gameLoop() {
+      update();
+      requestAnimationFrame(gameLoop);
+    }
+
+    initWords().then(() => gameLoop());
+  </script>
+</body>
+</html>
