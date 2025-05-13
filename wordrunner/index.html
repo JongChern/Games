@@ -127,8 +127,20 @@
       ctx.fillStyle = "lime";
       ctx.fillRect(letterObj.x - playerSize / 2, letterObj.y, playerSize, playerSize);
       ctx.fillStyle = "black";
-      ctx.font = "20px Arial";
+      ctx.font = "20px Garamond";
       ctx.fillText(letterObj.letter, letterObj.x - 6, letterObj.y + 26);
+    }
+
+    function drawTargetWord() {
+      const fontSize = 36.4; // 30% larger than 28px
+      ctx.font = `${fontSize}px Garamond`;
+      const totalWidth = targetWord.length * 22;
+      const startX = (canvas.width - totalWidth) / 2;
+      const y = 50;
+      for (let i = 0; i < targetWord.length; i++) {
+        ctx.fillStyle = collectedLetters[i] === targetWord[i] ? "lime" : "white";
+        ctx.fillText(targetWord[i], startX + i * 22, y);
+      }
     }
 
     function spawnObstacle() {
@@ -209,11 +221,12 @@
         }
       }
 
+      drawTargetWord();
       ctx.fillStyle = "white";
-      ctx.font = "16px Arial";
-      ctx.fillText("Collected: " + collectedLetters.join(""), 10, 20);
-      ctx.fillText("Target: " + targetWord, 10, 40);
-      ctx.fillText("Score: " + score, 10, 60);
+      ctx.font = "16px Garamond";
+      const scoreText = "Score: " + score;
+      const textWidth = ctx.measureText(scoreText).width;
+      ctx.fillText(scoreText, canvas.width - textWidth - 10, 20);
 
       if (collectedLetters.join("") === targetWord) {
         score += 1;
