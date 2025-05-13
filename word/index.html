@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Stack Blocks Word Game</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #000;
+      color: white;
+      font-family: sans-serif;
+    }
+    #controls {
+      display: flex;
+      justify-content: center;
+      margin-top: 10px;
+    }
+    button {
+      padding: 10px 16px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      background: #9C27B0;
+      color: white;
+    }
+    canvas {
+      display: block;
+      margin: 20px auto;
+      background: #111;
+      border: 2px solid #fff;
+      width: 100%;
+      max-width: 320px;
+    }
+    #scoreDisplay, #wordInfo {
+      text-align: center;
+      font-size: 18px;
+      margin-top: 10px;
+    }
+    #wordInfo {
+      color: #0f0;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div id="controls"><button id="startBtn">▶️ Start Game</button></div>
+  <div id="scoreDisplay">Score: <span id="score">0</span></div>
+  <div id="wordInfo">Words found: <span id="wordCount">0</span> | Last word: <span id="lastWord">-</span></div>
+  <div id="wordsList" style="text-align:center; font-size:14px; color:#ccc; max-width:320px; margin:auto; white-space:pre-wrap; word-wrap:break-word;"></div>
+  <canvas id="gameCanvas" width="160" height="320"></canvas>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const blockSize = 20;
+    const rows = canvas.height / blockSize;
+    const cols = canvas.width / blockSize;
+    let board = Array.from({ length: rows }, () => Array(cols).fill(null));
+    let currentShape, currentX, currentY, gameInterval, score = 0, wordCount = 0;
+    let dictionary = new Set();
+    const startBtn = document.getElementById("startBtn");
+    startBtn.disabled = true;
+
+    fetch('https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt')
+      .then(r => r.text())
+      .then(text => {
+        text.split('\n').forEach(w => {
+          const word = w.trim().toUpperCase();
+          if (word.length >= 3) dictionary.add(word);
+        });
+        console.log('Dictionary loaded with', dictionary.size, 'words');
+        console.log('Sample check: TEN =', dictionary.has('TEN'));
+        startBtn.disabled = false;
+      });
+
+    const baseShapes = [
+      [[1]], [[1,1]], [[1],[1]],
+      [[1,1],[0,1]], [[0,1],[1,1]],
+      [[1,1],[1,1]]
+    ];
+
+    function rotateShape(shape) {
+      return shape[0].map((_, col) => shape.map(row => row[col]).reverse());
+    }
+    function mirrorShape(shape) {
+      return shape.map(row => [...row].reverse());
+    }
+
+    const shapeSet = new Set(), shapes = [];
+    baseShapes.forEach(base => {
+      let curr = base;
+      for (let i = 0; i < 4; i++) {
+        let serial = JSON.stringify(curr);
+        if (!shapeSet.has(serial) && curr.length <= 2 && curr[0].length <= 2) {
+          shapeSet.add(serial);
+          shapes.push(curr);
+        }
+        let mirrored = mirrorShape(curr);
+        let mserial = JSON.stringify(mirrored);
+        if (!shapeSet.has(mserial) && mirrored.length <= 2 && mirrored[0].length <= 2) {
+          shapeSet.add(mserial);
+          shapes.push(mirrored);
+        }
+        curr = rotateShape(curr);
+      }
+    });
+
+    const commonBigrams = [
+      'TH','HE','IN','ER','AN','RE','ON','AT','EN','ND','TI','ES','OR','TE','OF','ED','IS','IT','AL','AR','ST','TO','NT','NG','SE','HA','AS','OU','IO','LE','VE','CO','ME','DE','HI','RI','RO','IC','NE','EA','RA','CE','LI','CH','LL','BE','MA','SI','OM','UR'
+    ];
+    const getRandomLetter = (() => {
+      let buffer = [];
+      return () => {
+        if (buffer.length < 2) {
+          const bigram = commonBigrams[Math.floor(Math.random() * commonBigrams.length)];
+          buffer = bigram.split("");
+        }
+        return buffer.shift();
+      };
+    })();
+
+    function updateScore(val) {
+      score += val;
+      document.getElementById("score").textContent = score;
+    }
+
+    function drawBoard() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (board[r][c]) {
+            ctx.fillStyle = '#0f0';
+            ctx.fillRect(c * blockSize, r * blockSize, blockSize, blockSize);
+            ctx.strokeRect(c * blockSize, r * blockSize, blockSize, blockSize);
+            ctx.fillStyle = '#000';
+            ctx.font = '16px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(board[r][c].letter, c * blockSize + blockSize / 2, r * blockSize + blockSize / 2);
+          }
+        }
+      }
+      ctx.fillStyle = '#f00';
+      for (let r = 0; r < currentShape.length; r++) {
+        for (let c = 0; c < currentShape[r].length; c++) {
+          if (currentShape[r][c]) {
+            ctx.fillRect((currentX + c) * blockSize, (currentY + r) * blockSize, blockSize, blockSize);
+            ctx.fillStyle = '#000';
+            ctx.fillText(currentShape[r][c].letter, (currentX + c) * blockSize + blockSize / 2, (currentY + r) * blockSize + blockSize / 2);
+            ctx.fillStyle = '#f00';
+          }
+        }
+      }
+    }
+
+    function canMove(dx, dy, shape = currentShape) {
+      for (let r = 0; r < shape.length; r++) {
+        for (let c = 0; c < shape[r].length; c++) {
+          if (shape[r][c]) {
+            const newX = currentX + c + dx;
+            const newY = currentY + r + dy;
+            if (newX < 0 || newX >= cols || newY >= rows || (newY >= 0 && board[newY][newX])) {
+              return false;
+            }
+          }
+        }
+      }
+      return true;
+    }
+
+    function spawnShape() {
+      const raw = shapes[Math.floor(Math.random() * shapes.length)];
+      const letters = [];
+      raw.forEach(row => row.forEach(cell => cell && letters.push(getRandomLetter())));
+      let i = 0;
+      currentShape = raw.map(row => row.map(cell => cell ? { filled: true, letter: letters[i++] } : null));
+      currentX = Math.floor((cols - currentShape[0].length) / 2);
+      currentY = 0;
+      if (!canMove(0, 0)) {
+        alert("Game Over! Final Score: " + score);
+        clearInterval(gameInterval);
+      }
+    }
+
+    function updateGame() {
+      if (canMove(0, 1)) currentY++;
+      else { mergeShape(); spawnShape(); }
+      drawBoard();
+    }
+
+    function mergeShape() {
+      for (let r = 0; r < currentShape.length; r++) {
+        for (let c = 0; c < currentShape[r].length; c++) {
+          if (currentShape[r][c]) {
+            board[currentY + r][currentX + c] = currentShape[r][c];
+          }
+        }
+      }
+      clearLines();
+    }
+
+    function clearLines() {
+      for (let r = rows - 1; r >= 0; r--) {
+        if (board[r].every(cell => cell && cell.filled)) {
+          const letters = board[r].map(cell => cell.letter).join('').toUpperCase();
+          console.log('Checking row:', r, 'Letters:', letters);
+          let foundWords = [];
+          for (let len = 3; len <= letters.length; len++) {
+            for (let i = 0; i <= letters.length - len; i++) {
+              const sub = letters.slice(i, i + len);
+              console.log('Checking substring:', sub);
+              if (dictionary.has(sub)) {
+                console.log('Found word:', sub);
+                foundWords.push(sub);
+              }
+            }
+          }
+          if (foundWords.length > 0) {
+            const uniqueWords = [...new Set(foundWords)];
+            const total = uniqueWords.reduce((acc, w) => acc + 10 * w.length, 0);
+            console.log('Scoring words:', uniqueWords, 'Total points:', total);
+            updateScore(total);
+            wordCount += uniqueWords.length;
+            document.getElementById("wordCount").textContent = wordCount;
+            document.getElementById("lastWord").textContent = uniqueWords.join(', ');
+            const existing = document.getElementById("wordsList").textContent;
+            document.getElementById("wordsList").textContent = existing + "\n" + uniqueWords.join(', ');
+          } else {
+            console.log('No words found. Base score applied.');
+            updateScore(10);
+          }
+          board.splice(r, 1);
+          board.unshift(Array(cols).fill(null));
+          r++;
+        }
+      }
+    }
+
+    function startGame() {
+      // DEBUG: Inject test word into the bottom row
+      const testWord = "RUNNERSU";
+      const rowIdx = rows - 1;
+      for (let i = 0; i < testWord.length && i < cols; i++) {
+        board[rowIdx][i] = { filled: true, letter: testWord[i] };
+      }
+      clearLines();
+      board = Array.from({ length: rows }, () => Array(cols).fill(null));
+      score = 0; wordCount = 0;
+      updateScore(0);
+      document.getElementById("wordCount").textContent = 0;
+      document.getElementById("lastWord").textContent = "-";
+      document.getElementById("wordsList").textContent = "";
+      spawnShape();
+      clearInterval(gameInterval);
+      gameInterval = setInterval(updateGame, 1000);
+    }
+
+    document.getElementById("startBtn").addEventListener("click", startGame);
+
+    document.addEventListener("keydown", e => {
+      if (!currentShape) return;
+      if (e.key === "a") {
+        const rotated = rotateShape(currentShape);
+        if (canMove(0, 0, rotated)) currentShape = rotated;
+        drawBoard();
+        return;
+      }
+      if (e.key === "ArrowLeft" && canMove(-1, 0)) currentX--;
+      else if (e.key === "ArrowRight" && canMove(1, 0)) currentX++;
+      else if (e.key === "ArrowDown" && canMove(0, 1)) currentY++;
+      else if (e.key === "ArrowUp") {
+        const flat = [];
+        for (let r = 0; r < currentShape.length; r++) {
+          for (let c = 0; c < currentShape[r].length; c++) {
+            if (currentShape[r][c]) flat.push(currentShape[r][c].letter);
+          }
+        }
+        flat.unshift(flat.pop());
+        let i = 0;
+        for (let r = 0; r < currentShape.length; r++) {
+          for (let c = 0; c < currentShape[r].length; c++) {
+            if (currentShape[r][c]) currentShape[r][c].letter = flat[i++];
+          }
+        }
+      }
+      drawBoard();
+    });
+  </script>
+</body>
+</html>
