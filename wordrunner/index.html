@@ -19,6 +19,16 @@
 </head>
 <body>
   <canvas id="gameCanvas" width="400" height="600"></canvas>
+  <div style="text-align: center; padding: 10px; background: #333; color: white;">
+    <label for="speedSlider">Game Speed:</label>
+    <input type="range" id="speedSlider" min="1" max="15" step="0.1" value="5">
+    <span id="speedValue">5</span>
+  <br>
+    <label><input type="checkbox" id="hardMode"> Hard Mode</label><br>
+    <label for="missingLettersSlider">Missing Letters:</label>
+    <input type="range" id="missingLettersSlider" min="0" max="3" step="1" value="0">
+    <span id="missingLettersValue">0</span>
+  </div>
 
   <script>
     const canvas = document.getElementById("gameCanvas");
@@ -37,6 +47,7 @@
     let nextWord = "";
     let score = 0;
     let gameOver = false;
+let missingIndices = [];
 
     let currentWordLength = 3;
     const BASE_WORD_LENGTH = 3;
@@ -53,22 +64,71 @@
     let hopFrame = 0;
     let walkFrame = 0;
 
-    async function preloadWord(length) {
-      try {
-        const res = await fetch(`https://random-word-api.herokuapp.com/word?length=${length}`);
-        const data = await res.json();
-        return data[0].toUpperCase();
-      } catch {
-        return "RUN";
+    const commonWords = [
+  "THE", "AND", "YOU", "FOR", "ARE", "WITH", "THIS", "HAVE", "FROM", "ONE",
+  "WORD", "TIME", "YEAR", "MAKE", "GOOD", "PEOPLE", "LOOK", "WANT", "COME", "USE",
+  "FIND", "GIVE", "WORK", "MANY", "THING", "FIRST", "WELL", "LIFE", "EVEN", "TELL",
+  "CALL", "LONG", "GREAT", "HELP", "SAY", "KEEP", "TURN", "MOST", "RIGHT", "TRY",
+  "NEW", "OLD", "DAY", "HIGH", "OFF", "NEXT", "NAME", "SHOW", "FEEL", "MOVE",
+  "OVER", "BACK", "NEVER", "PLACE", "AFTER", "STILL", "HOME", "WORLD", "UNDER", "SMALL",
+  "AGAIN", "EVERY", "START", "GROUP", "STATE", "POINT", "LARGE", "THINK", "WHERE", "THREE",
+  "WHILE", "NUMBER", "ABOUT", "WATER", "THING", "THOSE", "FAMILY", "AROUND", "ALWAYS", "HOUSE",
+  "ALMOST", "SCHOOL", "FRIEND", "STORY", "ALONE", "MONEY", "MOTHER", "FATHER", "MUSIC", "HAPPY",
+  "CLOSE", "REALLY", "SOMETHING", "BEFORE", "LEARN", "LITTLE", "LEAVE", "YOUNG", "STAND", "EVER",
+  "NIGHT", "LIGHT", "HEART", "VOICE", "ENJOY", "TOGETHER", "QUESTION", "ANSWER", "TRUTH", "MEET",
+  "BUILD", "CLEAR", "CHANGE", "LEADER", "FOCUS", "STUDY", "HARD", "EASY", "SHORT", "STRONG",
+  "COVER", "PIECE", "CAUSE", "REASON", "BEGIN", "ORDER", "BETTER", "INSIDE", "OUTSIDE", "NATURE",
+  "EARLY", "FINAL", "CHOICE", "ENOUGH", "POWER", "NATION", "PUBLIC", "PERSON", "SYSTEM", "RIGHTS",
+  "OFTEN", "LEVEL", "RESULT", "PROCESS", "REPORT", "SOCIAL", "HUMAN", "VALUES", "CENTER", "MIND",
+  "VOICE", "BODY", "IMAGE", "MODEL", "SKILL", "TOOLS", "MARKET", "DRIVE", "EVENT", "TIMES",
+  "SPACE", "FORM", "LINES", "FIELD", "TOPIC", "IDEAS", "VALUE", "GOALS", "MAYBE", "RULES",
+  "BREAK", "LIMIT", "WORTH", "STEPS", "CHAIN", "CLOCK", "SPEED", "SCENE", "SCORE", "PLANS",
+  "TYPES", "PLANT", "EARTH", "THINK", "NAMES", "THEME", "FRONT", "MOVES", "PLANE", "TRAIN",
+  "CROSS", "TRACK", "POINT", "GRADE", "GRAPH", "RANGE", "ANGLE", "SCALE", "STARS", "FLASH",
+  "PAINT", "PIANO", "SOUND", "VOICE", "COLOR", "SHAPE", "BRING", "DRINK", "LAUGH", "SMILE",
+  "WATCH", "TASTE", "SMELL", "FEARS", "SHARE", "THROW", "WRITE", "READS", "SENDS", "WORDS",
+  "CHECK", "MATCH", "LEADS", "PLAYS", "TRIES", "ENJOY", "LOVES", "HATES", "DREAM", "RESTS",
+  "RISES", "FALLS", "CLOUD", "STORM", "SUNNY", "RAINY", "WAVES", "WINDY", "FIRES", "PLANS",
+  "TOOLS", "IDEAS", "TRUTH", "CAUSE", "EFFECT", "NOTES", "TIMES", "NAMES", "TYPES", "VIEWS",
+  "VISIT", "STOPS", "CALLS", "HELLO", "NIGHT", "MORNS", "MORAL", "FABLE", "LIONS", "TIGER",
+  "HORSE", "RABIT", "BEARS", "MOUSE", "SHEEP", "ZEBRA", "BIRDS", "BEES", "PLANS", "MAPLE",
+  "BREAD", "WHEAT", "RICE", "NOISE", "QUIET", "BLUES", "TUNES", "SINGS", "HUMMS", "MELOD",
+  "NOTES", "SONGS", "PLAYS", "GAMES", "CHESS", "CARDS", "BLOCK", "STACK", "FALLS", "SHAPE",
+  "CUBES", "ROLLS", "BALLS", "ROUND", "TUBES", "STICK", "GLUE", "TAPE", "FOLDS", "TURNS",
+  "JUMPS", "HOPS", "RUNNS", "WALKS", "SKIPS", "PUSH", "PULL", "KICKS", "BENDS", "LIFTS",
+  "CATCH", "THROW", "TURNS", "START", "PAUSE", "RESET", "LOOPS", "BREAK", "RETRY", "BEGIN",
+  "WATCH", "START", "CHILD", "YOUTH", "ADULT", "ELDER", "WOMAN", "MANLY", "TEENS", "YOUNG",
+  "OLDER", "KNOWS", "LEARN", "SHARE", "TEACH", "GUIDE", "LEADS", "BUILD", "MAKES", "FINDS",
+  "PLANS", "CHOSE", "FOLKS", "CROWD", "GROUP", "CLASS", "GRADE", "LEVEL", "DEGREE", "POINT",
+  "LINES", "SLOPE", "TILES", "FLOOR", "WALLS", "DOORS", "CLOSE", "OPENS", "LOCKS", "TURNS"
+];
+
+async function preloadWord(length) {
+  try {
+    const hardMode = document.getElementById("hardMode")?.checked;
+    if (hardMode) {
+      const res = await fetch(`https://random-word-api.herokuapp.com/word?length=${length}`);
+      const data = await res.json();
+      return data[0].toUpperCase();
+    } else {
+      const candidates = commonWords.filter(word => word.length === length);
+      const choice = candidates[Math.floor(Math.random() * candidates.length)];
+      return choice;
+    }
+  } catch {
+    return "RUN";
       }
     }
 
     async function initWords() {
       targetWord = await preloadWord(currentWordLength);
+      missingIndices = generateMissingIndices();
       nextWord = await preloadWord(currentWordLength + 1);
     }
 
     document.addEventListener("keydown", (e) => {
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) return;
       if ((e.key === "ArrowLeft" || e.key === "a" || e.key === "A") && playerLane > 0) {
         playerLane--;
         hopFrame = 10;
@@ -222,9 +282,16 @@
       const totalWidth = targetWord.length * 22;
       const startX = (canvas.width - totalWidth) / 2;
       const y = 50;
+      const missingCount = parseInt(document.getElementById("missingLettersSlider").value);
+      
+      // missingIndices is now generated once per word
+
       for (let i = 0; i < targetWord.length; i++) {
-        ctx.fillStyle = collectedLetters[i] === targetWord[i] ? "lime" : "white";
-        ctx.fillText(targetWord[i], startX + i * 22, y);
+        ctx.fillStyle = missingIndices.includes(i) ? "gray" : (collectedLetters[i] === targetWord[i] ? "lime" : "white");
+        const showLetter = missingIndices.includes(i)
+          ? (collectedLetters[i] === targetWord[i] ? targetWord[i] : "_")
+          : targetWord[i];
+        ctx.fillText(showLetter, startX + i * 22, y);
       }
     }
 
@@ -298,7 +365,12 @@
         ) {
           gameOver = true;
           alert("Game Over! Score: " + score);
-          document.location.reload();
+          localStorage.setItem("lastSpeed", currentSpeed);
+          const speedSlider = document.getElementById("speedSlider");
+          const lastSpeed = parseFloat(speedSlider.value);
+          location.reload();
+          speedSlider.value = lastSpeed;
+          document.getElementById("speedValue").textContent = lastSpeed;
         }
       }
 
@@ -340,6 +412,7 @@
         }
 
         targetWord = nextWord;
+        missingIndices = generateMissingIndices();
         nextWord = await preloadWord(Math.min(currentWordLength + 1, MAX_WORD_LENGTH));
       }
 
@@ -358,7 +431,49 @@
       requestAnimationFrame(gameLoop);
     }
 
+    document.getElementById("speedSlider").addEventListener("input", function(e) {
+      currentSpeed = parseFloat(e.target.value);
+      document.getElementById("speedValue").textContent = e.target.value;
+    });
+
+    document.getElementById("missingLettersSlider").addEventListener("input", function(e) {
+      const value = parseInt(e.target.value);
+      localStorage.setItem("missingCount", value);
+      document.getElementById("missingLettersValue").textContent = value;
+    });
+
+    const savedSpeed = parseFloat(localStorage.getItem("lastSpeed"));
+    if (!isNaN(savedSpeed)) {
+      currentSpeed = savedSpeed;
+      document.getElementById("speedSlider").value = savedSpeed;
+      document.getElementById("speedValue").textContent = savedSpeed;
+    }
+
+    const savedMissing = parseInt(localStorage.getItem("missingCount"));
+    if (!isNaN(savedMissing)) {
+      document.getElementById("missingLettersSlider").value = savedMissing;
+      document.getElementById("missingLettersValue").textContent = savedMissing;
+    }
+
+    const savedHardMode = localStorage.getItem("hardMode");
+    if (savedHardMode !== null) {
+      document.getElementById("hardMode").checked = savedHardMode === "true";
+    }
+
+    document.getElementById("hardMode").addEventListener("change", function(e) {
+      localStorage.setItem("hardMode", e.target.checked);
+    });
+
     initWords().then(() => gameLoop());
-  </script>
+  function generateMissingIndices() {
+  const count = parseInt(document.getElementById("missingLettersSlider").value);
+  const indices = [];
+  while (indices.length < count && indices.length < targetWord.length) {
+    const rand = Math.floor(Math.random() * targetWord.length);
+    if (!indices.includes(rand)) indices.push(rand);
+  }
+  return indices;
+}
+</script>
 </body>
 </html>
