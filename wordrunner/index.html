@@ -50,6 +50,7 @@
     let score = 0;
     let gameOver = false;
 let gamePaused = false;
+let autoPlayMode = true;
 let missingIndices = [];
 
     let currentWordLength = 3;
@@ -355,7 +356,8 @@ canvas.addEventListener("touchend", (e) => {
     }
 
     async function update() {
-      if (gameOver || gamePaused) return;
+      if (gameOver) return;
+      if (gamePaused && !autoPlayMode) return;
 
       const effectiveSpeed = isJumping ? currentSpeed * 1.75 : currentSpeed;
       bgY += effectiveSpeed * 0.5;
@@ -377,6 +379,18 @@ canvas.addEventListener("touchend", (e) => {
         });
       }
 
+      if (autoPlayMode && Math.random() < 0.02 && !isJumping) {
+        isJumping = true;
+        jumpFrame = 20;
+      }
+      if (autoPlayMode && hopFrame === 0 && Math.random() < 0.02) {
+        const direction = Math.random() < 0.5 ? -1 : 1;
+        const newLane = playerLane + direction;
+        if (newLane >= 0 && newLane <= 2) {
+          playerLane = newLane;
+          hopFrame = 10;
+        }
+      }
       drawPlayer();
 
       for (let obs of obstacles) {
@@ -518,6 +532,7 @@ canvas.addEventListener("touchend", (e) => {
 
 <script>
   document.getElementById("startGameBtn").addEventListener("click", () => {
+    autoPlayMode = false;
     document.getElementById("instructionOverlay").style.display = "none";
     gamePaused = false;
   });
