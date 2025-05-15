@@ -7,44 +7,29 @@
   <style>
     body { margin: 0; overflow: hidden; background: black; color: white; }
     canvas { display: block; background: #000; }
-    .controls {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      display: grid;
-      grid-template-columns: 60px 60px 60px;
-      grid-template-rows: 60px 60px;
-      gap: 10px;
-      z-index: 10;
-    }
-    .btn {
-      width: 60px;
-      height: 60px;
-      border-radius: 30px;
-      border: none;
-      opacity: 0.6;
-      font-size: 24px;
-    }
-    #left { background: green; grid-column: 1; grid-row: 2; }
-    #right { background: green; grid-column: 3; grid-row: 2; }
-    #up { background: blue; grid-column: 2; grid-row: 1; }
-    #down { background: blue; grid-column: 2; grid-row: 2; }
-    #shoot { background: red; position: fixed; bottom: 100px; right: 30px; width: 70px; height: 70px; border-radius: 35px; font-size: 28px; opacity: 0.7; }
   </style>
 </head>
 <body>
   <canvas id="gameCanvas" width="800" height="400"></canvas>
-  <div class="controls">
-    <button class="btn" id="up">⬆️</button>
-    <button class="btn" id="left">⬅️</button>
-    <button class="btn" id="down">⬇️</button>
-    <button class="btn" id="right">➡️</button>
-  </div>
-  <button class="btn" id="shoot">🔥</button>
   <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
+
+    function isMobilePortrait() {
+      return /Mobi|Android/i.test(navigator.userAgent) && window.innerHeight > window.innerWidth;
+    }
+
+    function resizeCanvas() {
+      if (isMobilePortrait()) {
+        canvas.width = 400;
+        canvas.height = 700;
+      } else {
+        canvas.width = 800;
+        canvas.height = 400;
+      }
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
 
     const hero = {
       x: canvas.width / 2 - 16,
@@ -245,20 +230,6 @@
       requestAnimationFrame(update);
     }
 
-    document.getElementById('left').addEventListener('click', () => hero.x = Math.max(0, hero.x - hero.speed));
-    document.getElementById('right').addEventListener('click', () => hero.x = Math.min(canvas.width - hero.width, hero.x + hero.speed));
-    document.getElementById('up').addEventListener('click', () => hero.y = Math.max(0, hero.y - hero.speed));
-    document.getElementById('down').addEventListener('click', () => hero.y = Math.min(canvas.height - hero.height, hero.y + hero.speed));
-    document.getElementById('shoot').addEventListener('click', () => {
-      bullets.push({
-        x: hero.x + hero.width / 2 - 2,
-        y: hero.y,
-        width: 4,
-        height: 10,
-        speed: 7
-      });
-    });
-
     document.addEventListener('keydown', e => {
       if (!hero.alive) return;
       if (e.key === 'ArrowLeft') hero.x = Math.max(0, hero.x - hero.speed);
@@ -278,5 +249,44 @@
 
     update();
   </script>
+<div id="joystick" style="position: fixed; bottom: 80px; left: 40px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border-radius: 50%; touch-action: none; z-index: 10; display: none;"></div>
+<script>
+  const joystick = document.getElementById('joystick');
+  if (/Mobi|Android/i.test(navigator.userAgent)) {
+    joystick.style.display = 'block';
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touching = false;
+
+    joystick.addEventListener('touchstart', (e) => {
+      const touch = e.touches[0];
+      touchStartX = touch.clientX;
+      touchStartY = touch.clientY;
+      touching = true;
+    });
+
+    joystick.addEventListener('touchmove', (e) => {
+      if (!touching) return;
+      const touch = e.touches[0];
+      const dx = touch.clientX - touchStartX;
+      const dy = touch.clientY - touchStartY;
+      if (Math.abs(dx) > 20 || Math.abs(dy) > 20) {
+        if (Math.abs(dx) > Math.abs(dy)) {
+          if (dx > 0) hero.x = Math.min(canvas.width - hero.width, hero.x + hero.speed);
+          else hero.x = Math.max(0, hero.x - hero.speed);
+        } else {
+          if (dy > 0) hero.y = Math.min(canvas.height - hero.height, hero.y + hero.speed);
+          else hero.y = Math.max(0, hero.y - hero.speed);
+        }
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
+      }
+    });
+
+    joystick.addEventListener('touchend', () => {
+      touching = false;
+    });
+  }
+</script>
 </body>
 </html>
