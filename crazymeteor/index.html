@@ -249,7 +249,7 @@
 
     update();
   </script>
-<div id="joystick" style="position: fixed; bottom: 80px; left: 40px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border-radius: 50%; touch-action: none; z-index: 10; display: none;"></div>
+<div id="joystick" style="position: fixed; bottom: 80px; right: 40px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border-radius: 50%; touch-action: none; z-index: 10; display: none;"></div>
 <script>
   const joystick = document.getElementById('joystick');
   if (/Mobi|Android/i.test(navigator.userAgent)) {
@@ -285,6 +285,24 @@
 
     joystick.addEventListener('touchend', () => {
       touching = false;
+    });
+  }
+</script>
+
+<!-- Mobile shoot button -->
+<button id="mobileShoot" style="position: fixed; bottom: 80px; left: 40px; width: 100px; height: 100px; background: red; border-radius: 50%; color: white; font-size: 24px; z-index: 10; display: none;">🔥</button>
+<script>
+  const shootButton = document.getElementById('mobileShoot');
+  if (/Mobi|Android/i.test(navigator.userAgent)) {
+    shootButton.style.display = 'block';
+    shootButton.addEventListener('click', () => {
+      bullets.push({
+        x: hero.x + hero.width / 2 - 2,
+        y: hero.y,
+        width: 4,
+        height: 10,
+        speed: 7
+      });
     });
   }
 </script>
