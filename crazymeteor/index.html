@@ -44,40 +44,47 @@
       alive: true
     };
 
-    const bullets = [];
     const meteors = [];
     let frameCount = 0;
     let score = 0;
+    let cargoCollected = 0;
+    const cargoItems = [];
 
     function drawScore() {
       ctx.fillStyle = 'white';
       ctx.font = '18px sans-serif';
       ctx.fillText(`Score: ${score}`, 10, 20);
+      ctx.fillText(`Cargo: ${cargoCollected}`, 10, 40);
     }
 
     function drawHero() {
-      ctx.fillStyle = 'silver';
+      const cx = hero.x + hero.width / 2;
+      const cy = hero.y + hero.height / 2;
+
+      const gradient = ctx.createLinearGradient(hero.x, hero.y, hero.x + hero.width, hero.y + hero.height);
+      gradient.addColorStop(0, '#aaa');
+      gradient.addColorStop(1, '#444');
+      ctx.fillStyle = gradient;
+
       ctx.beginPath();
-      ctx.moveTo(hero.x + hero.width / 2, hero.y);
+      ctx.moveTo(cx, hero.y);
       ctx.lineTo(hero.x, hero.y + hero.height);
+      ctx.lineTo(cx, hero.y + hero.height * 0.75);
       ctx.lineTo(hero.x + hero.width, hero.y + hero.height);
       ctx.closePath();
       ctx.fill();
 
       ctx.fillStyle = 'skyblue';
-      ctx.fillRect(hero.x + hero.width / 2 - 4, hero.y + hero.height / 2 - 4, 8, 8);
+      ctx.beginPath();
+      ctx.arc(cx, hero.y + hero.height * 0.4, 4, 0, Math.PI * 2);
+      ctx.fill();
 
       const flicker = frameCount % 20 < 10 ? 'orange' : 'red';
       ctx.fillStyle = flicker;
       ctx.beginPath();
-      ctx.arc(hero.x + 5, hero.y + hero.height + 5, 4, 0, Math.PI * 2);
-      ctx.arc(hero.x + hero.width - 5, hero.y + hero.height + 5, 4, 0, Math.PI * 2);
+      ctx.arc(hero.x + 4, hero.y + hero.height + 3, 3, 0, Math.PI * 2);
+      ctx.arc(hero.x + hero.width - 4, hero.y + hero.height + 3, 3, 0, Math.PI * 2);
       ctx.fill();
-    }
-
-    function drawBullet(bullet) {
-      ctx.fillStyle = 'yellow';
-      ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
     }
 
     function drawMeteor(meteor) {
@@ -162,6 +169,27 @@
       hero.y = Math.max(0, Math.min(canvas.height - hero.height, hero.y));
     }
 
+    function drawCargo(cargo) {
+      ctx.save();
+      ctx.translate(cargo.x, cargo.y);
+      ctx.rotate(cargo.angle);
+      const size = 12.5;
+      const gradient = ctx.createLinearGradient(-size, -size, size, size);
+      gradient.addColorStop(0, '#ffd700');
+      gradient.addColorStop(1, '#b8860b');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(-size / 2, -size / 2, size, size);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-size / 2, 0);
+      ctx.lineTo(size / 2, 0);
+      ctx.moveTo(0, -size / 2);
+      ctx.lineTo(0, size / 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     function update() {
       updateHeroPosition();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -176,17 +204,10 @@
 
       drawHero();
 
-      bullets.forEach((b, i) => {
-        b.y -= b.speed;
-        drawBullet(b);
-        if (b.y < 0) bullets.splice(i, 1);
-      });
-
       for (let i = 0; i < meteors.length; i++) {
         let m1 = meteors[i];
         m1.x += m1.drift;
         m1.y += m1.speed;
-
         for (let j = i + 1; j < meteors.length; j++) {
           let m2 = meteors[j];
           resolveMeteorCollision(m1, m2);
@@ -195,32 +216,29 @@
 
       meteors.forEach((m, i) => {
         drawMeteor(m);
+        if (m.flash && frameCount - m.flash < 5) {
+          ctx.strokeStyle = 'white';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(m.x, m.y, m.radius + 2, 0, Math.PI * 2);
+          ctx.stroke();
+        }
         if (m.y - m.radius > canvas.height) meteors.splice(i, 1);
         if (checkCollision(hero, m)) hero.alive = false;
       });
 
-      bullets.forEach((b, bi) => {
-        meteors.forEach((m, mi) => {
-          if (checkCollision(b, m)) {
-            if (m.rotate) m.drift *= -1;
-            else m.drift += (Math.random() - 0.5) * 2;
-            m.speed *= 0.9;
-            bullets.splice(bi, 1);
-            score += 10;
-          }
-        });
-      });
-
       if (frameCount % 40 === 0) {
-        const drift = (Math.random() - 0.5) * 2 * Math.tan(5 * Math.PI / 180);
+        const baseRadius = 20;
+        const isLarge = Math.random() < 0.15;
+        const radius = isLarge ? baseRadius * (1 + Math.random() * 0.5) : baseRadius;
+        const driftVal = (Math.random() - 0.5) * 2 * Math.tan(5 * Math.PI / 180);
         const spawnSide = Math.random();
-
         if (spawnSide < 0.1) {
           const fromLeft = Math.random() < 0.5;
           meteors.push({
             x: fromLeft ? -20 : canvas.width + 20,
             y: Math.random() * canvas.height / 2,
-            radius: 20,
+            radius: radius,
             speed: 2 + Math.random() * 2,
             rotate: Math.random() < 0.1,
             angle: 0,
@@ -230,13 +248,35 @@
           meteors.push({
             x: Math.random() * (canvas.width - 60) + 30,
             y: -20,
-            radius: 20,
+            radius: radius,
             speed: 2 + Math.random() * 2,
             rotate: Math.random() < 0.1,
             angle: 0,
-            drift: drift
+            drift: driftVal
           });
         }
+      }
+
+      cargoItems.forEach((c, i) => {
+        c.y += c.speed;
+        c.angle += c.rotationSpeed;
+        drawCargo(c);
+        if (checkCollision(hero, { x: c.x, y: c.y, radius: 10 })) {
+          cargoCollected++;
+          cargoItems.splice(i, 1);
+        } else if (c.y > canvas.height) {
+          cargoItems.splice(i, 1);
+        }
+      });
+
+      if (frameCount % 180 === 0) {
+        cargoItems.push({
+          x: Math.random() * (canvas.width - 20) + 10,
+          y: -10,
+          speed: 1 + Math.random(),
+          angle: 0,
+          rotationSpeed: (Math.random() - 0.5) * 0.05
+        });
       }
 
       frameCount++;
@@ -249,15 +289,6 @@
       if (e.key === 'ArrowRight') hero.x = Math.min(canvas.width - hero.width, hero.x + hero.speed);
       if (e.key === 'ArrowUp') hero.y = Math.max(0, hero.y - hero.speed);
       if (e.key === 'ArrowDown') hero.y = Math.min(canvas.height - hero.height, hero.y + hero.speed);
-      if (e.key === ' ') {
-        bullets.push({
-          x: hero.x + hero.width / 2 - 2,
-          y: hero.y,
-          width: 4,
-          height: 10,
-          speed: 7
-        });
-      }
     });
 
     update();
