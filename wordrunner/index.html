@@ -154,7 +154,15 @@ async function preloadWord(length) {
       }
     });
 
-    canvas.addEventListener("touchstart", (e) => {
+    let lastTapTime = 0;
+canvas.addEventListener("touchstart", (e) => {
+  const now = Date.now();
+  if (now - lastTapTime < 300 && !isJumping) {
+    isJumping = true;
+    jumpFrame = 20;
+  }
+  lastTapTime = now;
+
   touchStartX = e.touches[0].clientX;
   touchStartY = e.touches[0].clientY;
 });
@@ -166,10 +174,7 @@ canvas.addEventListener("touchend", (e) => {
   const diffX = touchEndX - touchStartX;
   const diffY = touchStartY - touchEndY;
 
-  if (Math.abs(diffY) > 30 && diffY > 0 && !isJumping) {
-    isJumping = true;
-    jumpFrame = 20;
-  } else if (Math.abs(diffX) > 30) {
+  if (Math.abs(diffX) > 30) {
     if (diffX > 0 && playerLane < 2) {
       playerLane++;
       hopFrame = 10;
