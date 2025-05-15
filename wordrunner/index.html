@@ -64,6 +64,7 @@ let missingIndices = [];
     let spawnTimer;
 
     let touchStartX = null;
+let touchStartY = null;
     let hopFrame = 0;
     let walkFrame = 0;
 let isJumping = false;
@@ -150,24 +151,31 @@ async function preloadWord(length) {
     });
 
     canvas.addEventListener("touchstart", (e) => {
-      touchStartX = e.touches[0].clientX;
-    });
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+});
 
-    canvas.addEventListener("touchend", (e) => {
-      if (touchStartX === null) return;
-      const touchEndX = e.changedTouches[0].clientX;
-      const diffX = touchEndX - touchStartX;
+canvas.addEventListener("touchend", (e) => {
+  if (touchStartX === null || touchStartY === null) return;
+  const touchEndX = e.changedTouches[0].clientX;
+  const touchEndY = e.changedTouches[0].clientY;
+  const diffX = touchEndX - touchStartX;
+  const diffY = touchStartY - touchEndY;
 
-      if (Math.abs(diffX) > 30) {
-        if (diffX > 0 && playerLane < 2) {
-          playerLane++;
-          hopFrame = 10;
-        } else if (diffX < 0 && playerLane > 0) {
-          playerLane--;
-          hopFrame = 10;
-        }
-      }
-      touchStartX = null;
+  if (Math.abs(diffY) > 30 && diffY > 0 && !isJumping) {
+    isJumping = true;
+    jumpFrame = 20;
+  } else if (Math.abs(diffX) > 30) {
+    if (diffX > 0 && playerLane < 2) {
+      playerLane++;
+      hopFrame = 10;
+    } else if (diffX < 0 && playerLane > 0) {
+      playerLane--;
+      hopFrame = 10;
+    }
+  }
+  touchStartX = null;
+  touchStartY = null;
     });
 
     function drawPlayer() {
@@ -211,10 +219,14 @@ async function preloadWord(length) {
       ctx.stroke();
 
       // Shadow
-      ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+      const shadowWidth = isJumping ? 10 : 14;
+      const shadowHeight = isJumping ? 3 : 5;
+      const shadowOpacity = isJumping ? 0.1 : 0.2;
+      ctx.fillStyle = `rgba(0, 0, 0, ${shadowOpacity})`;
       ctx.beginPath();
-      ctx.ellipse(x, y + 45, 14, 5, 0, 0, Math.PI * 2);
+      ctx.ellipse(x, y + 45, shadowWidth, shadowHeight, 0, 0, Math.PI * 2);
       ctx.fill();
+      ctx.fillStyle = "white";
       ctx.fillStyle = "white";
 
       // Feet
@@ -497,5 +509,22 @@ async function preloadWord(length) {
   return indices;
 }
 </script>
-</body>
+<div id="instructionOverlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); color: white; font-family: Garamond, serif; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; text-align: center; padding: 20px;">
+  <h2>How to Play</h2>
+  <p>Swipe left or right to move.<br>Swipe up to jump over traps and collect the right letters.</p>
+  <p>Your goal is to spell the target word correctly by collecting the right carrots!</p>
+  <button id="startGameBtn" style="margin-top: 20px; padding: 10px 20px; font-size: 18px; cursor: pointer;">Start</button>
+</div>
+
+<script>
+  document.getElementById("startGameBtn").addEventListener("click", () => {
+    document.getElementById("instructionOverlay").style.display = "none";
+    gamePaused = false;
+  });
+  window.addEventListener("load", () => {
+    gamePaused = true;
+  });
+</script>
+
+$1
 </html>
