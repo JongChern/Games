@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crazy Meteor</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: black; color: white; }
+    canvas { display: block; background: #000; }
+    .controls {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: grid;
+      grid-template-columns: 60px 60px 60px;
+      grid-template-rows: 60px 60px;
+      gap: 10px;
+      z-index: 10;
+    }
+    .btn {
+      width: 60px;
+      height: 60px;
+      border-radius: 30px;
+      border: none;
+      opacity: 0.6;
+      font-size: 24px;
+    }
+    #left { background: green; grid-column: 1; grid-row: 2; }
+    #right { background: green; grid-column: 3; grid-row: 2; }
+    #up { background: blue; grid-column: 2; grid-row: 1; }
+    #down { background: blue; grid-column: 2; grid-row: 2; }
+    #shoot { background: red; position: fixed; bottom: 100px; right: 30px; width: 70px; height: 70px; border-radius: 35px; font-size: 28px; opacity: 0.7; }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="800" height="400"></canvas>
+  <div class="controls">
+    <button class="btn" id="up">⬆️</button>
+    <button class="btn" id="left">⬅️</button>
+    <button class="btn" id="down">⬇️</button>
+    <button class="btn" id="right">➡️</button>
+  </div>
+  <button class="btn" id="shoot">🔥</button>
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const hero = {
+      x: canvas.width / 2 - 16,
+      y: canvas.height - 60,
+      width: 32,
+      height: 32,
+      speed: 20,
+      alive: true
+    };
+
+    const bullets = [];
+    const meteors = [];
+    let frameCount = 0;
+    let score = 0;
+
+    function drawScore() {
+      ctx.fillStyle = 'white';
+      ctx.font = '18px sans-serif';
+      ctx.fillText(`Score: ${score}`, 10, 20);
+    }
+
+    function drawHero() {
+      ctx.fillStyle = 'silver';
+      ctx.beginPath();
+      ctx.moveTo(hero.x + hero.width / 2, hero.y);
+      ctx.lineTo(hero.x, hero.y + hero.height);
+      ctx.lineTo(hero.x + hero.width, hero.y + hero.height);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = 'skyblue';
+      ctx.fillRect(hero.x + hero.width / 2 - 4, hero.y + hero.height / 2 - 4, 8, 8);
+
+      const flicker = frameCount % 20 < 10 ? 'orange' : 'red';
+      ctx.fillStyle = flicker;
+      ctx.beginPath();
+      ctx.arc(hero.x + 5, hero.y + hero.height + 5, 4, 0, Math.PI * 2);
+      ctx.arc(hero.x + hero.width - 5, hero.y + hero.height + 5, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawBullet(bullet) {
+      ctx.fillStyle = 'yellow';
+      ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+    }
+
+    function drawMeteor(meteor) {
+      ctx.save();
+      ctx.translate(meteor.x, meteor.y);
+      if (meteor.rotate) {
+        ctx.rotate(meteor.angle);
+        meteor.angle += 0.03;
+      }
+
+      const gradient = ctx.createRadialGradient(0, 0, 5, 0, 0, meteor.radius);
+      gradient.addColorStop(0, 'darkgray');
+      gradient.addColorStop(0.7, 'dimgray');
+      gradient.addColorStop(1, 'black');
+
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(0, 0, meteor.radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = 'black';
+      if (!meteor.craters) {
+        meteor.craters = [];
+        const count = Math.floor(Math.random() * 3) + 2;
+        for (let i = 0; i < count; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const dist = Math.random() * meteor.radius * 0.6;
+          meteor.craters.push({
+            dx: Math.cos(angle) * dist,
+            dy: Math.sin(angle) * dist,
+            r: 2 + Math.random() * 3
+          });
+        }
+      }
+      meteor.craters.forEach(c => {
+        ctx.beginPath();
+        ctx.arc(c.dx, c.dy, c.r, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      ctx.restore();
+    }
+
+    function checkCollision(a, b) {
+      const ax = a.x + (a.width || 0) / 2;
+      const ay = a.y + (a.height || 0) / 2;
+      const dx = ax - b.x;
+      const dy = ay - b.y;
+      return Math.sqrt(dx * dx + dy * dy) < b.radius + 10;
+    }
+
+    function resolveMeteorCollision(m1, m2) {
+      const dx = m1.x - m2.x;
+      const dy = m1.y - m2.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const minDist = m1.radius + m2.radius;
+
+      if (dist < minDist && dist > 0) {
+        const overlap = 0.5 * (minDist - dist);
+        const nx = dx / dist;
+        const ny = dy / dist;
+        m1.x += nx * overlap;
+        m1.y += ny * overlap;
+        m2.x -= nx * overlap;
+        m2.y -= ny * overlap;
+
+        const tempDrift = m1.drift;
+        m1.drift = m2.drift;
+        m2.drift = tempDrift;
+
+        const tempSpeed = m1.speed;
+        m1.speed = m2.speed;
+        m2.speed = tempSpeed;
+      }
+    }
+
+    function update() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawScore();
+
+      if (!hero.alive) {
+        ctx.fillStyle = 'red';
+        ctx.font = '30px sans-serif';
+        ctx.fillText('GAME OVER', canvas.width / 2 - 100, canvas.height / 2);
+        return;
+      }
+
+      drawHero();
+
+      bullets.forEach((b, i) => {
+        b.y -= b.speed;
+        drawBullet(b);
+        if (b.y < 0) bullets.splice(i, 1);
+      });
+
+      for (let i = 0; i < meteors.length; i++) {
+        let m1 = meteors[i];
+        m1.x += m1.drift;
+        m1.y += m1.speed;
+
+        for (let j = i + 1; j < meteors.length; j++) {
+          let m2 = meteors[j];
+          resolveMeteorCollision(m1, m2);
+        }
+      }
+
+      meteors.forEach((m, i) => {
+        drawMeteor(m);
+        if (m.y - m.radius > canvas.height) meteors.splice(i, 1);
+        if (checkCollision(hero, m)) hero.alive = false;
+      });
+
+      bullets.forEach((b, bi) => {
+        meteors.forEach((m, mi) => {
+          if (checkCollision(b, m)) {
+            if (m.rotate) m.drift *= -1;
+            else m.drift += (Math.random() - 0.5) * 2;
+            m.speed *= 0.9;
+            bullets.splice(bi, 1);
+            score += 10;
+          }
+        });
+      });
+
+      if (frameCount % 40 === 0) {
+        const drift = (Math.random() - 0.5) * 2 * Math.tan(5 * Math.PI / 180);
+        const spawnSide = Math.random();
+
+        if (spawnSide < 0.1) {
+          const fromLeft = Math.random() < 0.5;
+          meteors.push({
+            x: fromLeft ? -20 : canvas.width + 20,
+            y: Math.random() * canvas.height / 2,
+            radius: 20,
+            speed: 2 + Math.random() * 2,
+            rotate: Math.random() < 0.1,
+            angle: 0,
+            drift: fromLeft ? 1.5 : -1.5
+          });
+        } else {
+          meteors.push({
+            x: Math.random() * (canvas.width - 60) + 30,
+            y: -20,
+            radius: 20,
+            speed: 2 + Math.random() * 2,
+            rotate: Math.random() < 0.1,
+            angle: 0,
+            drift: drift
+          });
+        }
+      }
+
+      frameCount++;
+      requestAnimationFrame(update);
+    }
+
+    document.getElementById('left').addEventListener('click', () => hero.x = Math.max(0, hero.x - hero.speed));
+    document.getElementById('right').addEventListener('click', () => hero.x = Math.min(canvas.width - hero.width, hero.x + hero.speed));
+    document.getElementById('up').addEventListener('click', () => hero.y = Math.max(0, hero.y - hero.speed));
+    document.getElementById('down').addEventListener('click', () => hero.y = Math.min(canvas.height - hero.height, hero.y + hero.speed));
+    document.getElementById('shoot').addEventListener('click', () => {
+      bullets.push({
+        x: hero.x + hero.width / 2 - 2,
+        y: hero.y,
+        width: 4,
+        height: 10,
+        speed: 7
+      });
+    });
+
+    document.addEventListener('keydown', e => {
+      if (!hero.alive) return;
+      if (e.key === 'ArrowLeft') hero.x = Math.max(0, hero.x - hero.speed);
+      if (e.key === 'ArrowRight') hero.x = Math.min(canvas.width - hero.width, hero.x + hero.speed);
+      if (e.key === 'ArrowUp') hero.y = Math.max(0, hero.y - hero.speed);
+      if (e.key === 'ArrowDown') hero.y = Math.min(canvas.height - hero.height, hero.y + hero.speed);
+      if (e.key === ' ') {
+        bullets.push({
+          x: hero.x + hero.width / 2 - 2,
+          y: hero.y,
+          width: 4,
+          height: 10,
+          speed: 7
+        });
+      }
+    });
+
+    update();
+  </script>
+</body>
+</html>
