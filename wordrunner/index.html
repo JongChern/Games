@@ -66,6 +66,9 @@ let missingIndices = [];
     let touchStartX = null;
     let hopFrame = 0;
     let walkFrame = 0;
+let isJumping = false;
+const JUMP_HEIGHT = 114;
+let jumpFrame = 0;
 
     const commonWords = [
   "THE", "AND", "YOU", "FOR", "ARE", "WITH", "THIS", "HAVE", "FROM", "ONE",
@@ -130,6 +133,10 @@ async function preloadWord(length) {
     }
 
     document.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowUp" && !isJumping) {
+    isJumping = true;
+    jumpFrame = 20;
+  }
       const activeEl = document.activeElement;
       if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) return;
       if ((e.key === "ArrowLeft" || e.key === "a" || e.key === "A") && playerLane > 0) {
@@ -164,9 +171,11 @@ async function preloadWord(length) {
     });
 
     function drawPlayer() {
+  const jumpOffset = isJumping ? -Math.sin((20 - jumpFrame) / 20 * Math.PI) * JUMP_HEIGHT : 0;
       ctx.fillStyle = "white";
       const x = lanes[playerLane];
-      const y = playerY;
+      const forwardOffset = isJumping ? -Math.cos((20 - jumpFrame) / 20 * Math.PI) * 60 : 0;
+      const y = playerY + jumpOffset + forwardOffset;
 
       // Bunny body and head
       ctx.beginPath();
@@ -336,7 +345,8 @@ async function preloadWord(length) {
     async function update() {
       if (gameOver || gamePaused) return;
 
-      bgY += currentSpeed * 0.5;
+      const effectiveSpeed = isJumping ? currentSpeed * 1.75 : currentSpeed;
+      bgY += effectiveSpeed * 0.5;
       if (bgY > canvas.height) bgY = 0;
 
       ctx.fillStyle = '#88b37f';
@@ -358,14 +368,13 @@ async function preloadWord(length) {
       drawPlayer();
 
       for (let obs of obstacles) {
-        obs.y += currentSpeed;
+        obs.y += effectiveSpeed;
         drawObstacle(obs);
 
-        if (
+        if (!isJumping &&
           obs.y + playerSize > playerY &&
           obs.y < playerY + playerSize &&
-          obs.x === lanes[playerLane]
-        ) {
+          obs.x === lanes[playerLane]) {
           gameOver = true;
           alert("Game Over! Score: " + score);
           localStorage.setItem("lastSpeed", currentSpeed);
@@ -379,14 +388,13 @@ async function preloadWord(length) {
 
       for (let i = letters.length - 1; i >= 0; i--) {
         const letter = letters[i];
-        letter.y += currentSpeed;
+        letter.y += effectiveSpeed;
         drawLetter(letter);
 
-        if (
+        if (!isJumping &&
           letter.y + playerSize > playerY &&
           letter.y < playerY + playerSize &&
-          letter.x === lanes[playerLane]
-        ) {
+          letter.x === lanes[playerLane]) {
           const expected = targetWord[collectedLetters.length];
           if (letter.letter === expected) {
             collectedLetters.push(letter.letter);
@@ -431,6 +439,10 @@ async function preloadWord(length) {
       update();
       walkFrame++;
       if (hopFrame > 0) hopFrame--;
+      if (jumpFrame > 0) {
+        jumpFrame--;
+        if (jumpFrame === 0) isJumping = false;
+      }
       requestAnimationFrame(gameLoop);
     }
 
