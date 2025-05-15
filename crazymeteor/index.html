@@ -249,61 +249,57 @@
 
     update();
   </script>
-<div id="joystick" style="position: fixed; bottom: 80px; right: 40px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border-radius: 50%; touch-action: none; z-index: 10; display: none;"></div>
+<div id="joystick" style="position: fixed; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border-radius: 50%; touch-action: none; z-index: 10; display: none;"></div>
 <script>
   const joystick = document.getElementById('joystick');
-  if (/Mobi|Android/i.test(navigator.userAgent)) {
-    joystick.style.display = 'block';
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let touching = false;
+if (/Mobi|Android/i.test(navigator.userAgent)) {
+  let direction = { x: 0, y: 0 };
+  let startX = 0, startY = 0;
+  let active = false;
 
-    joystick.addEventListener('touchstart', (e) => {
-      const touch = e.touches[0];
-      touchStartX = touch.clientX;
-      touchStartY = touch.clientY;
-      touching = true;
-    });
-
-    joystick.addEventListener('touchmove', (e) => {
-      if (!touching) return;
-      const touch = e.touches[0];
-      const dx = touch.clientX - touchStartX;
-      const dy = touch.clientY - touchStartY;
-      if (Math.abs(dx) > 20 || Math.abs(dy) > 20) {
-        if (Math.abs(dx) > Math.abs(dy)) {
-          if (dx > 0) hero.x = Math.min(canvas.width - hero.width, hero.x + hero.speed);
-          else hero.x = Math.max(0, hero.x - hero.speed);
-        } else {
-          if (dy > 0) hero.y = Math.min(canvas.height - hero.height, hero.y + hero.speed);
-          else hero.y = Math.max(0, hero.y - hero.speed);
-        }
-        touchStartX = touch.clientX;
-        touchStartY = touch.clientY;
-      }
-    });
-
-    joystick.addEventListener('touchend', () => {
-      touching = false;
-    });
+  function updateHeroPosition() {
+    if (!active) return;
+    hero.x += direction.x * hero.speed / 10;
+    hero.y += direction.y * hero.speed / 10;
+    hero.x = Math.max(0, Math.min(canvas.width - hero.width, hero.x));
+    hero.y = Math.max(0, Math.min(canvas.height - hero.height, hero.y));
   }
-</script>
 
-<!-- Mobile shoot button -->
-<button id="mobileShoot" style="position: fixed; bottom: 80px; left: 40px; width: 100px; height: 100px; background: red; border-radius: 50%; color: white; font-size: 24px; z-index: 10; display: none;">🔥</button>
-<script>
-  const shootButton = document.getElementById('mobileShoot');
-  if (/Mobi|Android/i.test(navigator.userAgent)) {
-    shootButton.style.display = 'block';
-    shootButton.addEventListener('click', () => {
-      bullets.push({
-        x: hero.x + hero.width / 2 - 2,
-        y: hero.y,
-        width: 4,
-        height: 10,
-        speed: 7
-      });
-    });
+  canvas.addEventListener('touchstart', (e) => {
+    const touch = e.touches[0];
+    startX = touch.clientX;
+    startY = touch.clientY;
+    joystick.style.left = `${startX - 50}px`;
+    joystick.style.top = `${startY - 50}px`;
+    joystick.style.display = 'block';
+    active = true;
+  });
+
+  canvas.addEventListener('touchmove', (e) => {
+    const touch = e.touches[0];
+    const dx = touch.clientX - startX;
+    const dy = touch.clientY - startY;
+    const mag = Math.sqrt(dx * dx + dy * dy);
+    if (mag > 10) {
+      direction.x = dx / mag;
+      direction.y = dy / mag;
+    }
+  });
+
+  canvas.addEventListener('touchend', () => {
+    direction = { x: 0, y: 0 };
+    active = false;
+    joystick.style.display = 'none';
+  });
+
+  const originalUpdate = update;
+  update = function customUpdate() {
+    updateHeroPosition();
+    originalUpdate();
+  };
+}
+      originalUpdate();
+    };
   }
 </script>
 </body>
