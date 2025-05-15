@@ -19,16 +19,18 @@
 </head>
 <body>
   <canvas id="gameCanvas" width="400" height="600"></canvas>
-  <div style="text-align: center; padding: 10px; background: #333; color: white;">
-    <label for="speedSlider">Game Speed:</label>
-    <input type="range" id="speedSlider" min="1" max="15" step="0.1" value="5">
-    <span id="speedValue">5</span>
-  <br>
-    <label><input type="checkbox" id="hardMode"> Hard Mode</label><br>
-    <label for="missingLettersSlider">Missing Letters:</label>
-    <input type="range" id="missingLettersSlider" min="0" max="3" step="1" value="0">
-    <span id="missingLettersValue">0</span>
-  </div>
+  <button id="settingsToggle" style="position: absolute; top: 10px; right: 10px; z-index: 10;">⚙️ Settings</button>
+<div id="settingsPanel" style="display: none; position: absolute; top: 50px; right: 10px; background: #333; color: white; padding: 10px; border: 1px solid #555; border-radius: 4px; z-index: 10;">
+  <label for="speedSlider">Game Speed:</label><br>
+  <input type="range" id="speedSlider" min="1" max="15" step="0.1" value="5">
+  <span id="speedValue">5</span><br><br>
+
+  <label><input type="checkbox" id="hardMode"> Hard Mode</label><br><br>
+
+  <label for="missingLettersSlider">Missing Letters:</label><br>
+  <input type="range" id="missingLettersSlider" min="0" max="3" step="1" value="0">
+  <span id="missingLettersValue">0</span>
+</div>
 
   <script>
     const canvas = document.getElementById("gameCanvas");
@@ -47,6 +49,7 @@
     let nextWord = "";
     let score = 0;
     let gameOver = false;
+let gamePaused = false;
 let missingIndices = [];
 
     let currentWordLength = 3;
@@ -331,7 +334,7 @@ async function preloadWord(length) {
     }
 
     async function update() {
-      if (gameOver) return;
+      if (gameOver || gamePaused) return;
 
       bgY += currentSpeed * 0.5;
       if (bgY > canvas.height) bgY = 0;
@@ -400,7 +403,7 @@ async function preloadWord(length) {
       ctx.font = "16px Garamond";
       const scoreText = "Score: " + score;
       const textWidth = ctx.measureText(scoreText).width;
-      ctx.fillText(scoreText, canvas.width - textWidth - 10, 20);
+      ctx.fillText(scoreText, 10, 20);
 
       if (collectedLetters.join("") === targetWord) {
         score += 1;
@@ -463,6 +466,13 @@ async function preloadWord(length) {
     document.getElementById("hardMode").addEventListener("change", function(e) {
       localStorage.setItem("hardMode", e.target.checked);
     });
+
+    document.getElementById("settingsToggle").addEventListener("click", () => {
+  const panel = document.getElementById("settingsPanel");
+  const isVisible = panel.style.display === "block";
+  panel.style.display = isVisible ? "none" : "block";
+  gamePaused = !gamePaused;
+});
 
     initWords().then(() => gameLoop());
   function generateMissingIndices() {
