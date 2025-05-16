@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crazy Meteor</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: black; color: white; }
+    canvas { display: block; background: #000; }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="800" height="400"></canvas>
+  <script>
+// Generated playback sequence
+
+const sequence = [
+  {
+    kick: [true,false,false,false,true,false,false,false,true,false,false,false,true,false,false,false],
+    snare: [false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false],
+    hat: [false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false]
+  },
+  {
+    kick: [true,false,false,false,true,false,false,false,true,false,false,false,true,false,false,false],
+    snare: [false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false],
+    hat: [true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false]
+  },
+  {
+    kick: [true,false,false,false,false,false,false,false,true,false,false,false,false,false,false,false],
+    snare: [false,false,false,false,true,false,false,false,false,false,false,false,true,false,false,false],
+    hat: [false,false,true,false,false,false,true,false,false,false,true,false,false,false,true,false]
+  },
+  {
+    kick: [true,false,false,false,false,false,false,false,true,false,false,false,false,false,false,false],
+    snare: [false,false,false,false,true,false,false,false,false,false,false,false,true,false,false,false],
+    hat: [false,false,true,false,false,false,true,false,false,false,true,false,false,false,true,false]
+  },
+  {
+    kick: [true,false,false,false,false,false,false,false,true,false,false,false,false,false,false,false],
+    snare: [false,false,false,false,true,false,false,false,false,false,false,false,true,false,false,false],
+    hat: [false,false,true,false,false,false,true,false,false,false,true,false,false,false,true,false]
+  },
+  {
+    kick: [true,false,false,false,false,false,false,false,true,false,false,false,false,false,false,false],
+    snare: [false,false,false,false,true,false,false,false,false,false,false,false,true,false,false,false],
+    hat: [false,false,true,false,false,false,true,false,false,false,true,false,false,false,true,false]
+  },
+  {
+    kick: [true,true,false,false,false,false,false,false,true,true,false,false,false,false,false,false],
+    snare: [false,false,false,false,true,false,false,false,false,false,false,false,true,false,false,false],
+    hat: [true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false]
+  },
+  {
+    kick: [true,true,false,false,false,false,false,false,true,true,false,false,false,false,false,false],
+    snare: [false,false,false,false,true,false,false,false,false,false,false,false,true,false,false,false],
+    hat: [true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false]
+  },
+  {
+    kick: [false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false],
+    snare: [true,false,true,false,true,true,true,false,true,false,true,false,true,true,true,true],
+    hat: [false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false]
+  },
+  {
+    kick: [true,false,false,false,true,false,false,false,true,false,false,false,true,false,false,false],
+    snare: [false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false],
+    hat: [false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false]
+  },
+  {
+    kick: [true,false,false,false,true,false,false,false,true,false,false,false,true,false,false,false],
+    snare: [false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false],
+    hat: [true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false]
+  },
+  {
+    kick: [true,false,false,false,false,false,false,false,true,false,false,false,false,false,false,false],
+    snare: [false,false,false,false,true,false,false,false,false,false,false,false,true,false,false,false],
+    hat: [false,false,true,false,false,false,true,false,false,false,true,false,false,false,true,false]
+  },
+  {
+    kick: [true,false,false,false,false,false,false,false,true,false,false,false,false,false,false,false],
+    snare: [false,false,false,false,true,false,false,false,false,false,false,false,true,false,false,false],
+    hat: [false,false,true,false,false,false,true,false,false,false,true,false,false,false,true,false]
+  },
+  {
+    kick: [true,true,false,false,false,false,false,false,true,true,false,false,false,false,false,false],
+    snare: [false,false,false,false,true,false,false,false,false,false,false,false,true,false,false,false],
+    hat: [true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false]
+  },
+  {
+    kick: [true,true,false,false,false,false,false,false,true,true,false,false,false,false,false,false],
+    snare: [false,false,false,false,true,false,false,false,false,false,false,false,true,false,false,false],
+    hat: [true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false]
+  },
+  {
+    kick: [false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false],
+    snare: [true,false,true,false,true,true,true,false,true,false,true,false,true,true,true,true],
+    hat: [false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false]
+  },
+];
+
+const tempo = 160;
+
+
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let step = 0;
+let sequenceIndex = 0;
+
+function playKick() {
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.1);
+  gain.gain.setValueAtTime(1, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.1);
+}
+
+function playSnare() {
+  const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.2, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < buffer.length; i++) data[i] = Math.random() * 2 - 1;
+  const src = audioCtx.createBufferSource();
+  src.buffer = buffer;
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'highpass';
+  filter.frequency.setValueAtTime(1000, audioCtx.currentTime);
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+  src.connect(filter).connect(gain).connect(audioCtx.destination);
+  src.start();
+}
+
+function playHat() {
+  const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.05, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < buffer.length; i++) data[i] = Math.random() * 2 - 1;
+  const src = audioCtx.createBufferSource();
+  src.buffer = buffer;
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.frequency.setValueAtTime(8000, audioCtx.currentTime);
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+  src.connect(filter).connect(gain).connect(audioCtx.destination);
+  src.start();
+}
+
+function playStep(pattern) {
+  if (pattern.kick[step]) playKick();
+  if (pattern.snare[step]) playSnare();
+  if (pattern.hat[step]) playHat();
+}
+
+setInterval(() => {
+  playStep(sequence[sequenceIndex]);
+  step++;
+  if (step >= 16) {
+    step = 0;
+    sequenceIndex = (sequenceIndex + 1) % sequence.length;
+  }
+}, (60000 / tempo) / 2);
+
+
+    
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let direction = { x: 0, y: 0 };
+    let startX = 0, startY = 0;
+    let active = false;
+
+    function isMobilePortrait() {
+      return /Mobi|Android/i.test(navigator.userAgent) && window.innerHeight > window.innerWidth;
+    }
+
+    function resizeCanvas() {
+      if (isMobilePortrait()) {
+        canvas.width = 400;
+        canvas.height = 700;
+      } else {
+        canvas.width = 800;
+        canvas.height = 400;
+      }
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    const hero = {
+      x: canvas.width / 2 - 16,
+      y: canvas.height - 60,
+      width: 32,
+      height: 32,
+      speed: 20,
+      alive: true
+    };
+
+    const meteors = [];
+    let frameCount = 0;
+    let score = 0;
+    let cargoCollected = 0;
+    const cargoItems = [];
+
+    function drawScore() {
+      ctx.fillStyle = 'white';
+      ctx.font = '18px sans-serif';
+      ctx.fillText(`Score: ${score}`, 10, 20);
+      ctx.fillText(`Cargo: ${cargoCollected}`, 10, 40);
+    }
+
+    function drawHero() {
+      const cx = hero.x + hero.width / 2;
+      const cy = hero.y + hero.height / 2;
+
+      const gradient = ctx.createLinearGradient(hero.x, hero.y, hero.x + hero.width, hero.y + hero.height);
+      gradient.addColorStop(0, '#aaa');
+      gradient.addColorStop(1, '#444');
+      ctx.fillStyle = gradient;
+
+      ctx.beginPath();
+      ctx.moveTo(cx, hero.y);
+      ctx.lineTo(hero.x, hero.y + hero.height);
+      ctx.lineTo(cx, hero.y + hero.height * 0.75);
+      ctx.lineTo(hero.x + hero.width, hero.y + hero.height);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = 'skyblue';
+      ctx.beginPath();
+      ctx.arc(cx, hero.y + hero.height * 0.4, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      const flicker = frameCount % 20 < 10 ? 'orange' : 'red';
+      ctx.fillStyle = flicker;
+      ctx.beginPath();
+      ctx.arc(hero.x + 4, hero.y + hero.height + 3, 3, 0, Math.PI * 2);
+      ctx.arc(hero.x + hero.width - 4, hero.y + hero.height + 3, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawMeteor(meteor) {
+      ctx.save();
+      ctx.translate(meteor.x, meteor.y);
+      if (meteor.rotate) {
+        ctx.rotate(meteor.angle);
+        meteor.angle += 0.03;
+      }
+
+      const gradient = ctx.createRadialGradient(0, 0, 5, 0, 0, meteor.radius);
+      gradient.addColorStop(0, 'darkgray');
+      gradient.addColorStop(0.7, 'dimgray');
+      gradient.addColorStop(1, 'black');
+
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(0, 0, meteor.radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = 'black';
+      if (!meteor.craters) {
+        meteor.craters = [];
+        const count = Math.floor(Math.random() * 3) + 2;
+        for (let i = 0; i < count; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const dist = Math.random() * meteor.radius * 0.6;
+          meteor.craters.push({
+            dx: Math.cos(angle) * dist,
+            dy: Math.sin(angle) * dist,
+            r: 2 + Math.random() * 3
+          });
+        }
+      }
+      meteor.craters.forEach(c => {
+        ctx.beginPath();
+        ctx.arc(c.dx, c.dy, c.r, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      ctx.restore();
+    }
+
+    function checkCollision(a, b) {
+      const ax = a.x + (a.width || 0) / 2;
+      const ay = a.y + (a.height || 0) / 2;
+      const dx = ax - b.x;
+      const dy = ay - b.y;
+      return Math.sqrt(dx * dx + dy * dy) < b.radius + 10;
+    }
+
+    function resolveMeteorCollision(m1, m2) {
+      const dx = m1.x - m2.x;
+      const dy = m1.y - m2.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const minDist = m1.radius + m2.radius;
+
+      if (dist < minDist && dist > 0) {
+        const overlap = 0.5 * (minDist - dist);
+        const nx = dx / dist;
+        const ny = dy / dist;
+        m1.x += nx * overlap;
+        m1.y += ny * overlap;
+        m2.x -= nx * overlap;
+        m2.y -= ny * overlap;
+
+        const tempDrift = m1.drift;
+        m1.drift = m2.drift;
+        m2.drift = tempDrift;
+
+        const tempSpeed = m1.speed;
+        m1.speed = m2.speed;
+        m2.speed = tempSpeed;
+      }
+    }
+
+    function updateHeroPosition() {
+      if (!active) return;
+      hero.x += direction.x * hero.speed / 10;
+      hero.y += direction.y * hero.speed / 10;
+      hero.x = Math.max(0, Math.min(canvas.width - hero.width, hero.x));
+      hero.y = Math.max(0, Math.min(canvas.height - hero.height, hero.y));
+    }
+
+    function drawCargo(cargo) {
+      ctx.save();
+      ctx.translate(cargo.x, cargo.y);
+      ctx.rotate(cargo.angle);
+      const size = 12.5;
+      const gradient = ctx.createLinearGradient(-size, -size, size, size);
+      gradient.addColorStop(0, '#ffd700');
+      gradient.addColorStop(1, '#b8860b');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(-size / 2, -size / 2, size, size);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-size / 2, 0);
+      ctx.lineTo(size / 2, 0);
+      ctx.moveTo(0, -size / 2);
+      ctx.lineTo(0, size / 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function update() {
+      updateHeroPosition();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawScore();
+
+      if (!hero.alive) {
+        ctx.fillStyle = 'red';
+        ctx.font = '30px sans-serif';
+        ctx.fillText('GAME OVER', canvas.width / 2 - 100, canvas.height / 2);
+        return;
+      }
+
+      drawHero();
+
+      for (let i = 0; i < meteors.length; i++) {
+        let m1 = meteors[i];
+        m1.x += m1.drift;
+        m1.y += m1.speed;
+        for (let j = i + 1; j < meteors.length; j++) {
+          let m2 = meteors[j];
+          resolveMeteorCollision(m1, m2);
+        }
+      }
+
+      meteors.forEach((m, i) => {
+        drawMeteor(m);
+        if (m.flash && frameCount - m.flash < 5) {
+          ctx.strokeStyle = 'white';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(m.x, m.y, m.radius + 2, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        if (m.y - m.radius > canvas.height) meteors.splice(i, 1);
+        if (checkCollision(hero, m)) hero.alive = false;
+      });
+
+      if (frameCount % 40 === 0) {
+        const baseRadius = 20;
+        const isLarge = Math.random() < 0.15;
+        const radius = isLarge ? baseRadius * (1 + Math.random() * 0.5) : baseRadius;
+        const driftVal = (Math.random() - 0.5) * 2 * Math.tan(5 * Math.PI / 180);
+        const spawnSide = Math.random();
+        if (spawnSide < 0.1) {
+          const fromLeft = Math.random() < 0.5;
+          meteors.push({
+            x: fromLeft ? -20 : canvas.width + 20,
+            y: Math.random() * canvas.height / 2,
+            radius: radius,
+            speed: 2 + Math.random() * 2,
+            rotate: Math.random() < 0.1,
+            angle: 0,
+            drift: fromLeft ? 1.5 : -1.5
+          });
+        } else {
+          meteors.push({
+            x: Math.random() * (canvas.width - 60) + 30,
+            y: -20,
+            radius: radius,
+            speed: 2 + Math.random() * 2,
+            rotate: Math.random() < 0.1,
+            angle: 0,
+            drift: driftVal
+          });
+        }
+      }
+
+      cargoItems.forEach((c, i) => {
+        c.y += c.speed;
+        c.angle += c.rotationSpeed;
+        drawCargo(c);
+        if (checkCollision(hero, { x: c.x, y: c.y, radius: 10 })) {
+          cargoCollected++;
+          cargoItems.splice(i, 1);
+        } else if (c.y > canvas.height) {
+          cargoItems.splice(i, 1);
+        }
+      });
+
+      if (frameCount % 180 === 0) {
+        cargoItems.push({
+          x: Math.random() * (canvas.width - 20) + 10,
+          y: -10,
+          speed: 1 + Math.random(),
+          angle: 0,
+          rotationSpeed: (Math.random() - 0.5) * 0.05
+        });
+      }
+
+      frameCount++;
+      requestAnimationFrame(update);
+    }
+
+    document.addEventListener('keydown', e => {
+      if (!hero.alive) return;
+      if (e.key === 'ArrowLeft') hero.x = Math.max(0, hero.x - hero.speed);
+      if (e.key === 'ArrowRight') hero.x = Math.min(canvas.width - hero.width, hero.x + hero.speed);
+      if (e.key === 'ArrowUp') hero.y = Math.max(0, hero.y - hero.speed);
+      if (e.key === 'ArrowDown') hero.y = Math.min(canvas.height - hero.height, hero.y + hero.speed);
+    });
+
+    const joystick = document.createElement('div');
+    joystick.id = 'joystick';
+    joystick.style.cssText = 'position:fixed;width:100px;height:100px;background:rgba(255,255,255,0.1);border-radius:50%;touch-action:none;z-index:10;display:none;';
+    document.body.appendChild(joystick);
+
+    function setJoystickStart(x, y) {
+      startX = x;
+      startY = y;
+      joystick.style.left = `${startX - 50}px`;
+      joystick.style.top = `${startY - 50}px`;
+      joystick.style.display = 'block';
+      active = true;
+    }
+
+    function processMovement(x, y) {
+      const dx = x - startX;
+      const dy = y - startY;
+      const mag = Math.sqrt(dx * dx + dy * dy);
+      if (mag > 10) {
+        direction.x = dx / mag;
+        direction.y = dy / mag;
+      }
+    }
+
+    canvas.addEventListener('touchstart', (e) => {
+      const point = e.touches[0];
+      setJoystickStart(point.clientX, point.clientY);
+    });
+
+    canvas.addEventListener('mousedown', (e) => {
+      setJoystickStart(e.clientX, e.clientY);
+    });
+
+    canvas.addEventListener('touchmove', (e) => {
+      const point = e.touches[0];
+      processMovement(point.clientX, point.clientY);
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (!active) return;
+      processMovement(e.clientX, e.clientY);
+    });
+
+    canvas.addEventListener('touchend', () => {
+      direction = { x: 0, y: 0 };
+      active = false;
+      joystick.style.display = 'none';
+    });
+
+    window.addEventListener('mouseup', () => {
+      direction = { x: 0, y: 0 };
+      active = false;
+      joystick.style.display = 'none';
+    });
+
+        update();
+  </script>
+</body>
+</html>
