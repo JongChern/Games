@@ -11,55 +11,26 @@
 </head>
 <body>
   <canvas id="gameCanvas" width="800" height="400"></canvas>
+  <div id="endOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;display:none;align-items:center;justify-content:center;flex-direction:column;background:rgba(0,0,0,0.7);color:white;z-index:1001;text-align:center;">
+    <div id="endMessage" style="font-size:24px;margin-bottom:10px;"></div>
+    <button id="restartButton" style="padding:12px 24px;font-size:18px;background:#444;color:white;border:none;border-radius:6px;cursor:pointer;">Restart Game</button>
+  </div>
+  <div id="startOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;background:black;color:white;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;text-align:center;padding:20px;">
+    <div style="margin-bottom:20px;">
+      <div style="font-size:24px;margin-bottom:10px;">🚀 Meteor Mayhem!</div>
+      <img src="splash_screen.png" alt="Splash Screen" style="width:100%;max-width:300px;margin-bottom:10px;" />
+      <p style="max-width:400px;">A cargo carrier ship has been shattered by a meteor shower! Crates are spilling through space. Dodge the falling meteors, collect the precious cargo, and survive the chaos. Good luck, pilot!</p>
+    </div>
+    <button id="startButton" style="padding:12px 24px;font-size:18px;background:#444;color:white;border:none;border-radius:6px;cursor:pointer;">Start Game</button>
+  </div>
   <script>
 // Generated playback sequence
-// Generated playback sequence
 
 // Generated playback sequence
 
 // Generated playback sequence
 
-const sequence = [
-  {
-    kick: [true,false,false,false,true,false,false,false,true,false,false,false,true,false,false,false],
-    snare: [false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false],
-    hat: [false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false]
-  },
-  {
-    kick: [true,false,false,false,true,false,false,false,true,false,false,false,true,false,false,false],
-    snare: [false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false],
-    hat: [true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false]
-  },
-  {
-    kick: [true,false,false,false,false,false,false,false,true,false,false,false,false,false,false,false],
-    snare: [false,false,false,false,true,false,false,false,false,false,false,false,true,false,false,false],
-    hat: [false,false,true,false,false,false,true,false,false,false,true,false,false,false,true,false]
-  },
-  {
-    kick: [true,false,false,false,false,false,false,false,true,false,false,false,false,false,false,false],
-    snare: [false,false,false,false,true,false,false,false,false,false,false,false,true,false,false,false],
-    hat: [false,false,true,false,false,false,true,false,false,false,true,false,false,false,true,false]
-  },
-  {
-    kick: [true,false,false,false,false,false,false,false,true,false,false,false,false,false,false,false],
-    snare: [false,false,false,false,true,false,false,false,false,false,false,false,true,false,false,false],
-    hat: [false,false,true,false,false,false,true,false,false,false,true,false,false,false,true,false]
-  },
-  {
-    kick: [true,false,false,false,false,false,false,false,true,false,false,false,false,false,false,false],
-    snare: [false,false,false,false,true,false,false,false,false,false,false,false,true,false,false,false],
-    hat: [false,false,true,false,false,false,true,false,false,false,true,false,false,false,true,false]
-  },
-  {
-    kick: [true,true,false,false,false,false,false,false,true,true,false,false,false,false,false,false],
-    snare: [false,false,false,false,true,false,false,false,false,false,false,false,true,false,false,false],
-    hat: [true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false]
-  },
-  {
-    kick: [true,true,false,false,false,false,false,false,true,true,false,false,false,false,false,false],
-    snare: [false,false,false,false,true,false,false,false,false,false,false,false,true,false,false,false],
-    hat: [true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false]
-  },
+const sequenceEnd = [
   {
     kick: [false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false],
     snare: [true,false,true,false,true,true,true,false,true,false,true,false,true,true,true,true],
@@ -70,44 +41,57 @@ const sequence = [
     snare: [false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false],
     hat: [false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false]
   },
+];
+    
+const sequence_0 = [
   {
-    kick: [true,false,false,false,true,false,false,false,true,false,false,false,true,false,false,false],
+    kick: [true,false,false,false,false,false,false,false,true,false,false,false,false,false,false,false],
     snare: [false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false],
-    hat: [true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false]
+    hat: [false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false]
   },
   {
-    kick: [true,false,false,false,false,false,false,false,true,false,false,false,false,false,false,false],
-    snare: [false,false,false,false,true,false,false,false,false,false,false,false,true,false,false,false],
-    hat: [false,false,true,false,false,false,true,false,false,false,true,false,false,false,true,false]
-  },
-  {
-    kick: [true,false,false,false,false,false,false,false,true,false,false,false,false,false,false,false],
-    snare: [false,false,false,false,true,false,false,false,false,false,false,false,true,false,false,false],
-    hat: [false,false,true,false,false,false,true,false,false,false,true,false,false,false,true,false]
-  },
-  {
-    kick: [true,true,false,false,false,false,false,false,true,true,false,false,false,false,false,false],
-    snare: [false,false,false,false,true,false,false,false,false,false,false,false,true,false,false,false],
-    hat: [true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false]
-  },
-  {
-    kick: [true,true,false,false,false,false,false,false,true,true,false,false,false,false,false,false],
-    snare: [false,false,false,false,true,false,false,false,false,false,false,false,true,false,false,false],
-    hat: [true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false]
-  },
-  {
-    kick: [false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false],
-    snare: [true,false,true,false,true,true,true,false,true,false,true,false,true,true,true,true],
+    kick: [true,false,false,false,false,false,false,true,true,false,false,false,false,false,false,false],
+    snare: [false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false],
     hat: [false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false]
   },
 ];
 
+const sequence_1 = [
+  {
+    kick: [true,false,false,false,false,false,false,false,true,false,false,false,false,false,false,false],
+    snare: [false,false,false,false,true,false,false,false,false,false,false,false,true,false,false,false],
+    hat: [false,false,true,false,false,false,true,false,false,false,true,false,false,false,true,false]
+  },
+  {
+    kick: [true,true,false,false,false,false,false,true,true,false,false,false,false,false,false,false],
+    snare: [false,false,false,false,true,false,false,false,false,false,false,false,true,false,false,false],
+    hat: [false,false,true,false,false,false,true,false,false,false,true,false,false,false,true,false]
+  },
+];
+
+const sequence_2 = [
+  {
+    kick: [true,false,false,false,false,false,false,true,true,false,false,false,false,false,false,false],
+    snare: [false,false,false,false,true,false,false,false,false,false,false,false,true,false,false,false],
+    hat: [true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,false]
+  },
+  {
+    kick: [true,true,false,false,false,false,false,true,true,false,false,false,false,false,false,false],
+    snare: [false,false,false,false,true,false,false,false,false,false,false,false,true,false,false,false],
+    hat: [true,false,true,false,true,false,true,false,true,false,true,false,true,false,true,true]
+  },
+];    
+    
 const tempo = 160;
 
-
+let gameOverSoundPlayed = false;
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 let step = 0;
 let sequenceIndex = 0;
+let currentSequence = sequence_0;
+let nextSequence = sequence_0;
+let isSwitching = false;
+
 
 function playKick() {
   const osc = audioCtx.createOscillator();
@@ -160,12 +144,50 @@ function playStep(pattern) {
   if (pattern.hat[step]) playHat();
 }
 
-setInterval(() => {
-  playStep(sequence[sequenceIndex]);
+function playEndSequence(callback) {
+  let stepEnd = 0;
+let indexEnd = 0;
+const endInterval = setInterval(() => {
+  const pattern = sequenceEnd[indexEnd];
+  if (pattern.kick[stepEnd]) playKick();
+  if (pattern.snare[stepEnd]) playSnare();
+  if (pattern.hat[stepEnd]) playHat();
+
+  stepEnd++;
+  if (stepEnd >= 16) {
+    stepEnd = 0;
+    indexEnd++;
+    if (indexEnd >= sequenceEnd.length) {
+      clearInterval(endInterval);
+      if (callback) callback();
+    }
+  }
+}, (60000 / tempo) / 2);
+}
+    
+let loopInterval = setInterval(() => {
+  playStep(currentSequence[sequenceIndex]);
   step++;
   if (step >= 16) {
     step = 0;
-    sequenceIndex = (sequenceIndex + 1) % sequence.length;
+    sequenceIndex = (sequenceIndex + 1) % currentSequence.length;
+
+    if (sequenceIndex === 0 && currentSequence !== nextSequence) {
+      currentSequence = nextSequence;
+    }
+  }
+
+  // Check how many items are on screen
+  const totalItems = meteors.length + cargoItems.length;
+  const desired = totalItems >= 6 ? sequence_2 : (totalItems >= 4 ? sequence_1 : sequence_0);
+
+  if (!isSwitching && desired !== currentSequence) {
+    nextSequence = desired;
+    isSwitching = true;
+  }
+
+  if (sequenceIndex === 0) {
+    isSwitching = false;
   }
 }, (60000 / tempo) / 2);
 
@@ -205,15 +227,13 @@ setInterval(() => {
 
     const meteors = [];
     let frameCount = 0;
-    let score = 0;
     let cargoCollected = 0;
     const cargoItems = [];
 
     function drawScore() {
-      ctx.fillStyle = 'white';
-      ctx.font = '18px sans-serif';
-      ctx.fillText(`Score: ${score}`, 10, 20);
-      ctx.fillText(`Cargo: ${cargoCollected}`, 10, 40);
+  ctx.fillStyle = 'white';
+  ctx.font = '18px sans-serif';
+  ctx.fillText(`Cargo: ${cargoCollected}`, 10, 20);
     }
 
     function drawHero() {
@@ -322,8 +342,8 @@ setInterval(() => {
 
     function updateHeroPosition() {
       if (!active) return;
-      hero.x += direction.x * hero.speed / 10;
-      hero.y += direction.y * hero.speed / 10;
+      hero.x += direction.x * hero.speed / 6.67;
+      hero.y += direction.y * hero.speed / 6.67;
       hero.x = Math.max(0, Math.min(canvas.width - hero.width, hero.x));
       hero.y = Math.max(0, Math.min(canvas.height - hero.height, hero.y));
     }
@@ -355,11 +375,27 @@ setInterval(() => {
       drawScore();
 
       if (!hero.alive) {
-        ctx.fillStyle = 'red';
-        ctx.font = '30px sans-serif';
-        ctx.fillText('GAME OVER', canvas.width / 2 - 100, canvas.height / 2);
-        return;
-      }
+  if (!gameOverSoundPlayed) {
+    clearInterval(loopInterval);
+    const overlay = document.getElementById('endOverlay');
+    const message = document.getElementById('endMessage');
+    message.textContent = `Cargo: ${cargoCollected}`;
+    overlay.style.display = 'flex';
+    document.getElementById('restartButton').onclick = () => location.reload();
+
+    playEndSequence(() => {
+      const overlay = document.getElementById('endOverlay');
+      const message = document.getElementById('endMessage');
+      message.textContent = `Cargo: ${cargoCollected}`;
+      overlay.style.display = 'flex';
+      document.getElementById('restartButton').onclick = () => location.reload();
+    });
+    gameOverSoundPlayed = true;
+  }
+  return;
+  }
+
+
 
       drawHero();
 
@@ -505,7 +541,12 @@ setInterval(() => {
       joystick.style.display = 'none';
     });
 
-        update();
+        document.getElementById('startButton').addEventListener('click', () => {
+  document.getElementById('startOverlay').style.display = 'none';
+  update();
+
+  // Removed canvas intro drawing logic; now using splash_screen.png instead
+});
   </script>
 </body>
 </html>
