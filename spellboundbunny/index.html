@@ -95,14 +95,8 @@ E6:4 R:2 G5:2 A5:2 B5:2 C6:4
 R:2 G5:2 A5:2 F5:2 D5:2 R:4
 C6:2 E6:2 D6:4 R:2 G5:2 C6:4
 `;
-    
+
 const bunnyPlayer = createQueuedChiptunePlayer();
-const musicState = {
-  current: null,
-  lastCarrotTime: 0,
-  lastWordTime: 0,
-  idleThreshold: 6000
-};
 
     const commonWords = [
   "THE", "AND", "YOU", "FOR", "ARE", "WITH", "THIS", "HAVE", "FROM", "ONE",
@@ -394,7 +388,7 @@ canvas.addEventListener("touchend", (e) => {
         }
       }
     }
-
+let alternateCarrotTheme = true;
     async function update() {
       if (gameOver) return;
       if (gamePaused) return;
@@ -461,10 +455,19 @@ canvas.addEventListener("touchend", (e) => {
           letter.x === lanes[playerLane]) {
           const expected = targetWord[collectedLetters.length];
           if (letter.letter === expected) {
-            if (!['theme0', 'theme2'].includes(musicState.current)) {
-            bunnyPlayer.queue(bunnyTheme_1, 120);
-            musicState.current = 'theme1';
-            musicState.lastCarrotTime = Date.now();
+           
+
+			if (letter.letter === expected) {
+			  if (alternateCarrotTheme) {
+				bunnyPlayer.queue(bunnyTheme_1, 120);
+			  } else {
+				bunnyPlayer.queue(bunnyTheme_0, 120);
+			  }
+			  alternateCarrotTheme = !alternateCarrotTheme;
+			
+		   
+		   
+            
           }
           collectedLetters.push(letter.letter);
             if (document.getElementById("voiceToggle")?.checked) {
@@ -501,8 +504,6 @@ canvas.addEventListener("touchend", (e) => {
 
       if (collectedLetters.join("") === targetWord) {
         bunnyPlayer.queue(bunnyTheme_2, 120);
-        musicState.current = 'theme2';
-        musicState.lastWordTime = Date.now();
         if (document.getElementById("voiceToggle")?.checked) {
         const utterance = new SpeechSynthesisUtterance(targetWord);
         utterance.lang = "en-GB";
@@ -609,13 +610,9 @@ canvas.addEventListener("touchend", (e) => {
 
     setInterval(() => {
       const now = Date.now();
-      if (
-        now - musicState.lastCarrotTime > musicState.idleThreshold &&
-        now - musicState.lastWordTime > musicState.idleThreshold &&
-        musicState.current !== 'theme0'
+      if (bunnyPlayer.getQueueLength()
       ) {
         bunnyPlayer.queue(bunnyTheme_0, 120);
-        musicState.current = 'theme0';
       }
     }, 2000);
 
@@ -727,17 +724,16 @@ function createQueuedChiptunePlayer(defaultBpm = 120) {
      */
     queue: (melodyString, bpm = defaultBpm, shouldLoop = false) => {
       const parsed = parse(melodyString);
-      const totalNotes = totalQueuedNotes() + parsed.length + (isPlaying ? melody.length - index : 0);
-      if (totalNotes > 50) {
-        console.warn("Rejected: too many notes in queue.");
-        return;
-      }
-
+	  console.log("Current melody queue length:", queue.length);
+      if (queue.length ===0){
+		isPlaying = false;
+	  }
       queue.push({ string: melodyString, bpm, loop: shouldLoop });
 
-      if (!isPlaying) {
+      if (!isPlaying ) {
         isPlaying = true;
         const next = queue.shift();
+		console.log("Start melody queue length:", queue.length);
         startMelody(next.string, next.bpm, next.loop);
       }
     },
@@ -746,6 +742,7 @@ function createQueuedChiptunePlayer(defaultBpm = 120) {
       cancelAnimationFrame(scheduler);
       queue.length = 0;
     },
+	 getQueueLength: () => queue.length,
     isPlaying: () => isPlaying
   };
 }
