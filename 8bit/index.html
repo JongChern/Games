@@ -11,6 +11,19 @@
       text-align: center;
       padding: 20px;
     }
+    .active-queue {
+  background-color: #0ff !important;
+  color: #000 !important;
+  border-color: #0ff !important;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.7; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
     button, input, select {
       margin: 5px;
       font-size: 16px;
@@ -103,75 +116,16 @@
   </div>
 
   <pre id="outputJS"></pre>
-
+<h3>Chiptune Console</h3>
+<textarea id="chiptuneInput" rows="4" cols="60">E4:4 F4:4 G4:4 R:2 G4:2 A4:4
+B4:4 C5:4 D5:4 E5:8 R:4
+E5:4 F5:4 G5:4 R:2 G5:2 A5:4
+B5:4 C6:4 D6:4 E6:8 R:4</textarea><br>
+<button onclick="playChiptune()">Play Chiptune</button>
+<button onclick="stopChiptune()">Stop Chiptune</button>
   <script>
 
-    const codeString = `
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-let step = 0;
-let sequenceIndex = 0;
-
-function playKick() {
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.1);
-  gain.gain.setValueAtTime(1, audioCtx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
-  osc.connect(gain).connect(audioCtx.destination);
-  osc.start();
-  osc.stop(audioCtx.currentTime + 0.1);
-}
-
-function playSnare() {
-  const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.2, audioCtx.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < buffer.length; i++) data[i] = Math.random() * 2 - 1;
-  const src = audioCtx.createBufferSource();
-  src.buffer = buffer;
-  const filter = audioCtx.createBiquadFilter();
-  filter.type = 'highpass';
-  filter.frequency.setValueAtTime(1000, audioCtx.currentTime);
-  const gain = audioCtx.createGain();
-  gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-  src.connect(filter).connect(gain).connect(audioCtx.destination);
-  src.start();
-}
-
-function playHat() {
-  const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.05, audioCtx.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < buffer.length; i++) data[i] = Math.random() * 2 - 1;
-  const src = audioCtx.createBufferSource();
-  src.buffer = buffer;
-  const filter = audioCtx.createBiquadFilter();
-  filter.type = 'bandpass';
-  filter.frequency.setValueAtTime(8000, audioCtx.currentTime);
-  const gain = audioCtx.createGain();
-  gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
-  src.connect(filter).connect(gain).connect(audioCtx.destination);
-  src.start();
-}
-
-function playStep(pattern) {
-  if (pattern.kick[step]) playKick();
-  if (pattern.snare[step]) playSnare();
-  if (pattern.hat[step]) playHat();
-}
-
-setInterval(() => {
-  playStep(sequence[sequenceIndex]);
-  step++;
-  if (step >= 16) {
-    step = 0;
-    sequenceIndex = (sequenceIndex + 1) % sequence.length;
-  }
-}, (60000 / tempo) / 2);
-
-`;
+    const codeString = '';
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const stepsPerBar = 16;
     let variations = JSON.parse(localStorage.getItem('variations')) || [];
@@ -266,7 +220,7 @@ document.getElementById("sequenceQueue").addEventListener("drop", e => {
       queue.innerHTML = '';
       sequence.forEach((i, idx) => {
         const item = document.createElement("div");
-        item.className = 'variation-btn';
+        item.className = 'variation-btn' + (idx === sequenceIndex && isPlaying ? ' active-queue' : '');
         item.textContent = `Var ${i + 1}`;
         item.dataset.index = idx;
         item.draggable = true;
@@ -314,65 +268,100 @@ document.getElementById("sequenceQueue").addEventListener("drop", e => {
       document.getElementById("tempoDisplay").textContent = val;
     }
 
-    function startVariationPlayback() {
-      if (!variations[currentVariation]) return;
-      stopVariationPlayback();
-      isPlaying = true;
-      step = 0;
-      interval = setInterval(() => {
-        playStep(variations[currentVariation]);
-        step = (step + 1) % stepsPerBar;
-      }, (60000 / tempo) / 2);
+function startVariationPlayback() {
+  if (!variations[currentVariation]) return;
+  stopVariationPlayback();
+  isPlaying = true;
+  step = 0;
+
+  const scheduleAheadTime = 0.1;
+  let nextNoteTime = audioCtx.currentTime;
+
+  function scheduler() {
+    while (nextNoteTime < audioCtx.currentTime + scheduleAheadTime) {
+      playStepAt(variations[currentVariation], nextNoteTime);
+      nextNoteTime += (60 / tempo) / 2;
+      step = (step + 1) % stepsPerBar;
     }
+    if (isPlaying) requestAnimationFrame(scheduler);
+  }
+
+  scheduler();
+}
 
     function stopVariationPlayback() {
       clearInterval(interval);
       isPlaying = false;
     }
 
-    function startSequencePlayback() {
-      if (!sequence.length) return;
-      stopVariationPlayback();
-      step = 0;
-      sequenceIndex = 0;
-      isPlaying = true;
-      interval = setInterval(() => {
-        playStep(variations[sequence[sequenceIndex]]);
-        step++;
-        if (step >= stepsPerBar) {
-  step = 0;
-  sequenceIndex = (sequenceIndex + 1) % sequence.length;
-  currentVariation = sequence[sequenceIndex];
-  renderAllGrids(); // 🔁 visually update to match current variation
+    function playStepAt(pattern, time) {
+  if (pattern.kick[step]) playKick(time);
+  if (pattern.snare[step]) playSnare(time);
+  if (pattern.hat[step]) playHat(time);
 }
-      }, (60000 / tempo) / 2);
+
+function startSequencePlayback() {
+  if (!sequence.length) return;
+  stopVariationPlayback();
+  step = 0;
+  sequenceIndex = 0;
+  isPlaying = true;
+
+  currentVariation = sequence[sequenceIndex];
+  renderAllGrids();
+  updateQueueDisplay();
+
+  const scheduleAheadTime = 0.1;
+  nextNoteTime = audioCtx.currentTime;
+
+  function scheduler() {
+    while (nextNoteTime < audioCtx.currentTime + scheduleAheadTime) {
+      const pattern = variations[sequence[sequenceIndex]];
+      playStepAt(pattern, nextNoteTime);
+
+      step++;
+      if (step >= stepsPerBar) {
+        step = 0;
+        sequenceIndex = (sequenceIndex + 1) % sequence.length;
+        currentVariation = sequence[sequenceIndex];
+        renderAllGrids();
+        updateQueueDisplay();
+      }
+
+      nextNoteTime += (60 / tempo) / 2;
     }
+    if (isPlaying) requestAnimationFrame(scheduler);
+  }
+
+  scheduler();
+}
+
 
     function stopSequencePlayback() {
-      clearInterval(interval);
-      isPlaying = false;
-    }
+  isPlaying = false;
+}
 
     function playStep(pattern) {
-      if (pattern.kick[step]) playKick();
-      if (pattern.snare[step]) playSnare();
-      if (pattern.hat[step]) playHat();
+  const time = audioCtx.currentTime;
+  if (pattern.kick[step]) playKick(time);
+  if (pattern.snare[step]) playSnare(time);
+  if (pattern.hat[step]) playHat(time);
+}
+
+    function playKick(time = audioCtx.currentTime) {
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(100, time);
+  osc.frequency.exponentialRampToValueAtTime(30, time + 0.25);
+  gain.gain.setValueAtTime(1, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.25);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(time);
+  osc.stop(time + 0.25);
     }
 
-    function playKick() {
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.1);
-      gain.gain.setValueAtTime(1, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
-      osc.connect(gain).connect(audioCtx.destination);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.1);
-    }
-
-    function playSnare() {
+    function playSnare(time = audioCtx.currentTime) {
       const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.2, audioCtx.sampleRate);
       const data = buffer.getChannelData(0);
       for (let i = 0; i < buffer.length; i++) data[i] = Math.random() * 2 - 1;
@@ -380,15 +369,15 @@ document.getElementById("sequenceQueue").addEventListener("drop", e => {
       src.buffer = buffer;
       const filter = audioCtx.createBiquadFilter();
       filter.type = 'highpass';
-      filter.frequency.setValueAtTime(1000, audioCtx.currentTime);
+      filter.frequency.setValueAtTime(1000, time);
       const gain = audioCtx.createGain();
-      gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+      gain.gain.setValueAtTime(0.5, time);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
       src.connect(filter).connect(gain).connect(audioCtx.destination);
-      src.start();
+      src.start(time);
     }
 
-    function playHat() {
+    function playHat(time = audioCtx.currentTime) {
       const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.05, audioCtx.sampleRate);
       const data = buffer.getChannelData(0);
       for (let i = 0; i < buffer.length; i++) data[i] = Math.random() * 2 - 1;
@@ -396,12 +385,12 @@ document.getElementById("sequenceQueue").addEventListener("drop", e => {
       src.buffer = buffer;
       const filter = audioCtx.createBiquadFilter();
       filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(8000, audioCtx.currentTime);
+      filter.frequency.setValueAtTime(8000, time);
       const gain = audioCtx.createGain();
-      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+      gain.gain.setValueAtTime(0.3, time);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + 0.05);
       src.connect(filter).connect(gain).connect(audioCtx.destination);
-      src.start();
+      src.start(time);
     }
 
 function generatePlaybackJS(){
@@ -434,6 +423,75 @@ function generatePlaybackJS(){
       document.getElementById('tempoControl').value = tempo;
       document.getElementById('tempoDisplay').textContent = tempo;
     }
+
+let chiptuneNotes = [];
+let chiptuneIndex = 0;
+let isChiptunePlaying = false;
+let chiptuneScheduler;
+
+function parseChiptuneInput(input) {
+  return input.trim().split(/\s+/).map(token => {
+    if (token.startsWith("R:")) {
+      return { type: 'rest', duration: parseInt(token.split(":")[1]) };
+    } else {
+      const [note, dur] = token.split(":");
+      return { type: 'note', note, duration: parseInt(dur) };
+    }
+  });
+}
+
+function freqFromNote(note) {
+  const noteFreqs = { C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11 };
+  const match = note.match(/^([A-G]#?)(\d)$/);
+  if (!match) return 0;
+  const [, n, oct] = match;
+  const midi = (parseInt(oct) + 1) * 12 + noteFreqs[n];
+  return 440 * Math.pow(2, (midi - 69) / 12);
+}
+
+function playNote(noteObj, time) {
+  if (noteObj.type === 'rest') return;
+  const freq = freqFromNote(noteObj.note);
+  if (!isFinite(freq) || freq <= 0) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'square';
+  osc.frequency.setValueAtTime(freq, time);
+  gain.gain.setValueAtTime(0.2, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.3);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(time);
+  osc.stop(time + 0.3);
+}
+
+function playChiptune() {
+  const raw = document.getElementById('chiptuneInput').value;
+  chiptuneNotes = parseChiptuneInput(raw);
+  chiptuneIndex = 0;
+  isChiptunePlaying = true;
+  let nextTime = audioCtx.currentTime;
+  const beatTime = 60 / tempo;
+
+  function schedule() {
+    while (chiptuneIndex < chiptuneNotes.length && nextTime < audioCtx.currentTime + 0.1) {
+      const note = chiptuneNotes[chiptuneIndex];
+      playNote(note, nextTime);
+      nextTime += beatTime * (note.duration / 4);
+      chiptuneIndex++;
+    }
+    if (chiptuneIndex < chiptuneNotes.length && isChiptunePlaying) {
+      chiptuneScheduler = requestAnimationFrame(schedule);
+    }
+  }
+  schedule();
+}
+
+function stopChiptune() {
+  isChiptunePlaying = false;
+  cancelAnimationFrame(chiptuneScheduler);
+}
+
+    
   </script>
 </body>
 </html>
