@@ -24,6 +24,7 @@
   <label for="speedSlider">Game Speed:</label><br>
   <input type="range" id="speedSlider" min="1" max="15" step="0.1" value="5">
   <span id="speedValue">5</span><br><br>
+  <label><input type="checkbox" id="voiceToggle" checked> Enable Voice</label>
 
   <label><input type="checkbox" id="hardMode"> Hard Mode</label><br><br>
 
@@ -72,8 +73,36 @@ let touchStartY = null;
     let hopFrame = 0;
     let walkFrame = 0;
 let isJumping = false;
+let landingFrame = 0;
 const JUMP_HEIGHT = 114;
 let jumpFrame = 0;
+let jumpLandOffset = 0;
+    const bunnyTheme_0 = `
+C5:4 R:2 D5:4 E5:4 R:2
+G5:8 F5:4 E5:2 D5:2 R:4
+C5:4 G4:4 A4:4 R:2 C5:4
+E5:8 R:4 F5:2 G5:2 C6:4 R:4
+`;
+    const bunnyTheme_1 = `
+C5:2 E5:2 G5:2 R:2 G5:2 A5:4
+F5:2 D5:2 C5:4 R:2 C5:2 G5:4
+E5:2 R:2 E5:2 G5:2 A5:4 R:4
+C6:2 B5:2 A5:2 G5:2 R:4
+`;
+    const bunnyTheme_2 = `
+A5:2 B5:2 C6:4 R:1 C6:2 D6:2 R:1
+E6:4 R:2 G5:2 A5:2 B5:2 C6:4
+R:2 G5:2 A5:2 F5:2 D5:2 R:4
+C6:2 E6:2 D6:4 R:2 G5:2 C6:4
+`;
+    
+const bunnyPlayer = createQueuedChiptunePlayer();
+const musicState = {
+  current: null,
+  lastCarrotTime: 0,
+  lastWordTime: 0,
+  idleThreshold: 6000
+};
 
     const commonWords = [
   "THE", "AND", "YOU", "FOR", "ARE", "WITH", "THIS", "HAVE", "FROM", "ONE",
@@ -154,15 +183,7 @@ async function preloadWord(length) {
       }
     });
 
-    let lastTapTime = 0;
-canvas.addEventListener("touchstart", (e) => {
-  const now = Date.now();
-  if (now - lastTapTime < 300 && !isJumping) {
-    isJumping = true;
-    jumpFrame = 20;
-  }
-  lastTapTime = now;
-
+    canvas.addEventListener("touchstart", (e) => {
   touchStartX = e.touches[0].clientX;
   touchStartY = e.touches[0].clientY;
 });
@@ -174,7 +195,10 @@ canvas.addEventListener("touchend", (e) => {
   const diffX = touchEndX - touchStartX;
   const diffY = touchStartY - touchEndY;
 
-  if (Math.abs(diffX) > 30) {
+  if (Math.abs(diffY) > 30 && diffY > 0 && !isJumping) {
+    isJumping = true;
+    jumpFrame = 20;
+  } else if (Math.abs(diffX) > 30) {
     if (diffX > 0 && playerLane < 2) {
       playerLane++;
       hopFrame = 10;
@@ -191,8 +215,13 @@ canvas.addEventListener("touchend", (e) => {
   const jumpOffset = isJumping ? -Math.sin((20 - jumpFrame) / 20 * Math.PI) * JUMP_HEIGHT : 0;
       ctx.fillStyle = "white";
       const x = lanes[playerLane];
-      const forwardOffset = isJumping ? -Math.cos((20 - jumpFrame) / 20 * Math.PI) * 60 : 0;
-      const y = playerY + jumpOffset + forwardOffset;
+      const forwardOffset = 0;
+      let settleOffset = 0;
+      if (landingFrame > 0) {
+        const bounce = Math.sin((10 - landingFrame) / 10 * Math.PI);
+        settleOffset = bounce * 8 * (1 - (10 - landingFrame) / 10); // taper bounce down
+      }
+      const y = playerY + jumpOffset + forwardOffset + settleOffset + jumpLandOffset;
 
       // Bunny body and head
       ctx.beginPath();
@@ -235,7 +264,6 @@ canvas.addEventListener("touchend", (e) => {
       ctx.beginPath();
       ctx.ellipse(x, y + 45, shadowWidth, shadowHeight, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = "white";
       ctx.fillStyle = "white";
 
       // Feet
@@ -312,19 +340,23 @@ canvas.addEventListener("touchend", (e) => {
     function drawTargetWord() {
       const fontSize = 36.4;
       ctx.font = `${fontSize}px Garamond`;
-      const totalWidth = targetWord.length * 22;
+      const spacing = 6;
+      const letterWidths = targetWord.split('').map(l => ctx.measureText(l).width);
+      const totalWidth = letterWidths.reduce((a, b) => a + b, 0) + (targetWord.length - 1) * spacing;
       const startX = (canvas.width - totalWidth) / 2;
       const y = 50;
       const missingCount = parseInt(document.getElementById("missingLettersSlider").value);
       
       // missingIndices is now generated once per word
 
+      let x = startX;
       for (let i = 0; i < targetWord.length; i++) {
         ctx.fillStyle = missingIndices.includes(i) ? "gray" : (collectedLetters[i] === targetWord[i] ? "lime" : "white");
         const showLetter = missingIndices.includes(i)
           ? (collectedLetters[i] === targetWord[i] ? targetWord[i] : "_")
           : targetWord[i];
-        ctx.fillText(showLetter, startX + i * 22, y);
+        ctx.fillText(showLetter, x, y);
+        x += letterWidths[i] + spacing;
       }
     }
 
@@ -399,7 +431,7 @@ canvas.addEventListener("touchend", (e) => {
           hopFrame = 10;
         }
       }
-      drawPlayer();
+      
 
       for (let obs of obstacles) {
         obs.y += effectiveSpeed;
@@ -429,7 +461,17 @@ canvas.addEventListener("touchend", (e) => {
           letter.x === lanes[playerLane]) {
           const expected = targetWord[collectedLetters.length];
           if (letter.letter === expected) {
-            collectedLetters.push(letter.letter);
+            if (!['theme0', 'theme2'].includes(musicState.current)) {
+            bunnyPlayer.queue(bunnyTheme_1, 120);
+            musicState.current = 'theme1';
+            musicState.lastCarrotTime = Date.now();
+          }
+          collectedLetters.push(letter.letter);
+            if (document.getElementById("voiceToggle")?.checked) {
+          const sayLetter = new SpeechSynthesisUtterance(letter.letter);
+          sayLetter.lang = "en-GB";
+          speechSynthesis.speak(sayLetter);
+              }
           } else {
             collectedLetters = [];
             score = Math.max(0, score - 1);
@@ -439,6 +481,7 @@ canvas.addEventListener("touchend", (e) => {
       }
 
       drawTargetWord();
+      drawPlayer();
       ctx.fillStyle = "white";
       const baseFontSize = 16;
       const pulseSize = scorePulseFrame > 0 ? baseFontSize + scorePulseFrame * 1.5 : baseFontSize;
@@ -457,6 +500,14 @@ canvas.addEventListener("touchend", (e) => {
       });
 
       if (collectedLetters.join("") === targetWord) {
+        bunnyPlayer.queue(bunnyTheme_2, 120);
+        musicState.current = 'theme2';
+        musicState.lastWordTime = Date.now();
+        if (document.getElementById("voiceToggle")?.checked) {
+        const utterance = new SpeechSynthesisUtterance(targetWord);
+        utterance.lang = "en-GB";
+        speechSynthesis.speak(utterance);
+          }
         scorePops.push({ x: 10, y: 30, text: "+1", alpha: 1, frame: 0 });
         score += 1;
         scorePulseFrame = SCORE_PULSE_DURATION;
@@ -493,9 +544,18 @@ canvas.addEventListener("touchend", (e) => {
       update();
       walkFrame++;
       if (hopFrame > 0) hopFrame--;
+      if (landingFrame > 0) {
+        landingFrame--;
+        jumpLandOffset *= 0.85; // gradually return to normal
+        if (landingFrame === 0) jumpLandOffset = 0;
+      }
       if (jumpFrame > 0) {
         jumpFrame--;
-        if (jumpFrame === 0) isJumping = false;
+        if (jumpFrame === 0) {
+        isJumping = false;
+        landingFrame = 10;
+        jumpLandOffset = -30; // bunny lands visually forward
+      }
       }
       requestAnimationFrame(gameLoop);
     }
@@ -528,9 +588,16 @@ canvas.addEventListener("touchend", (e) => {
     if (savedHardMode !== null) {
       document.getElementById("hardMode").checked = savedHardMode === "true";
     }
-
     document.getElementById("hardMode").addEventListener("change", function(e) {
       localStorage.setItem("hardMode", e.target.checked);
+    });
+
+    const savedVoice = localStorage.getItem("voiceToggle");
+    if (savedVoice !== null) {
+      document.getElementById("voiceToggle").checked = savedVoice === "true";
+    }
+    document.getElementById("voiceToggle").addEventListener("change", function(e) {
+      localStorage.setItem("voiceToggle", e.target.checked);
     });
 
     document.getElementById("settingsToggle").addEventListener("click", () => {
@@ -539,6 +606,18 @@ canvas.addEventListener("touchend", (e) => {
   panel.style.display = isVisible ? "none" : "block";
   gamePaused = !gamePaused;
 });
+
+    setInterval(() => {
+      const now = Date.now();
+      if (
+        now - musicState.lastCarrotTime > musicState.idleThreshold &&
+        now - musicState.lastWordTime > musicState.idleThreshold &&
+        musicState.current !== 'theme0'
+      ) {
+        bunnyPlayer.queue(bunnyTheme_0, 120);
+        musicState.current = 'theme0';
+      }
+    }, 2000);
 
     initWords().then(() => gameLoop());
   function generateMissingIndices() {
@@ -561,6 +640,120 @@ document.addEventListener("visibilitychange", () => {
     }
   }
 });
+
+function createQueuedChiptunePlayer(defaultBpm = 120) {
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  let beatTime = 60 / defaultBpm;
+  let melody = [];
+  let originalMelody = [];
+  let index = 0;
+  let isPlaying = false;
+  let nextNoteTime = 0;
+  let loop = false;
+  let scheduler;
+  const queue = [];
+
+  function parse(input) {
+    return input.trim().split(/\s+/).map(token => {
+      if (token.startsWith("R:")) return { type: 'rest', duration: parseInt(token.split(":")[1]) };
+      const [note, dur] = token.split(":");
+      return { type: 'note', note, duration: parseInt(dur) };
+    });
+  }
+
+  function totalQueuedNotes() {
+    return queue.reduce((sum, item) => sum + parse(item.string).length, 0);
+  }
+
+  function freq(note) {
+    const map = { C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11 };
+    const match = note.match(/^([A-G]#?)(\d)$/);
+    if (!match) return 0;
+    const [, n, o] = match;
+    const midi = (parseInt(o) + 1) * 12 + map[n];
+    return 440 * Math.pow(2, (midi - 69) / 12);
+  }
+
+  function playNote(noteObj, time) {
+    if (noteObj.type === 'rest') return;
+    const f = freq(noteObj.note);
+    if (!isFinite(f)) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(f, time);
+    gain.gain.setValueAtTime(0.25, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(time);
+    osc.stop(time + 0.3);
+  }
+
+  function schedule() {
+    while (index < melody.length && nextNoteTime < audioCtx.currentTime + 0.1) {
+      const note = melody[index];
+      playNote(note, nextNoteTime);
+      nextNoteTime += beatTime * (note.duration / 4);
+      index++;
+    }
+
+    if (isPlaying) {
+      if (index < melody.length) {
+        scheduler = requestAnimationFrame(schedule);
+      } else if (loop) {
+        melody = melody.concat(originalMelody);
+        scheduler = requestAnimationFrame(schedule);
+      } else if (queue.length > 0) {
+        const next = queue.shift();
+        startMelody(next.string, next.bpm, next.loop);
+      }
+    }
+  }
+
+  function startMelody(melodyString, bpm, shouldLoop) {
+    originalMelody = parse(melodyString);
+    melody = originalMelody.slice();
+    index = 0;
+    loop = shouldLoop;
+    beatTime = 60 / bpm;
+    nextNoteTime = audioCtx.currentTime;
+    scheduler = requestAnimationFrame(schedule);
+  }
+
+  return {
+    /**
+     * Queues a melody to be played after the current one.
+     * Does nothing if it would exceed 20 notes total in the queue.
+     */
+    queue: (melodyString, bpm = defaultBpm, shouldLoop = false) => {
+      const parsed = parse(melodyString);
+      const totalNotes = totalQueuedNotes() + parsed.length + (isPlaying ? melody.length - index : 0);
+      if (totalNotes > 50) {
+        console.warn("Rejected: too many notes in queue.");
+        return;
+      }
+
+      queue.push({ string: melodyString, bpm, loop: shouldLoop });
+
+      if (!isPlaying) {
+        isPlaying = true;
+        const next = queue.shift();
+        startMelody(next.string, next.bpm, next.loop);
+      }
+    },
+    stop: () => {
+      isPlaying = false;
+      cancelAnimationFrame(scheduler);
+      queue.length = 0;
+    },
+    isPlaying: () => isPlaying
+  };
+}
+
+
+
+
+    
 </script>
 <div id="gameOverOverlay" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);color:white;font-family:Garamond,serif;z-index:25;align-items:center;justify-content:center;flex-direction:column;text-align:center;">
   <h2>Game Over</h2>
@@ -568,9 +761,9 @@ document.addEventListener("visibilitychange", () => {
   <button onclick="location.reload()" style="padding:10px 20px; font-size:18px; cursor:pointer;">Play Again</button>
 </div>
 <div id="instructionOverlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); color: white; font-family: Garamond, serif; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; text-align: center; padding: 20px;">
-  <h1 style=\"color: #fff1e6; font-size: 36px; margin-bottom: 20px;\">Spellbound <span style=\"color: #88b37f;\">Bunny</span></h1>
+  <h1 style="color: #fff1e6; font-size: 36px; margin-bottom: 20px;">Spellbound <span style="color: #88b37f;">Bunny</span></h1>
   <h2>How to Play</h2>
-  <p>Swipe left or right to move.<br>Double tap anywhere to jump over traps and collect the right letters.</p>
+  <p>Swipe left or right to move.<br>Swipe up to jump over traps and collect the right letters.</p>
   <p>Your goal is to spell the target word correctly by collecting the right carrots!</p>
   <button id="startGameBtn" style="margin-top: 20px; padding: 10px 20px; font-size: 18px; cursor: pointer;">Start</button>
 </div>
@@ -580,11 +773,10 @@ document.addEventListener("visibilitychange", () => {
     autoPlayMode = false;
     document.getElementById("instructionOverlay").style.display = "none";
     gamePaused = false;
+    bunnyPlayer.queue(bunnyTheme_0, 120); // will play first
   });
   window.addEventListener("load", () => {
     gamePaused = true;
   });
 </script>
-
-$1
 </html>
