@@ -95,7 +95,7 @@ E6:4 R:2 G5:2 A5:2 B5:2 C6:4
 R:2 G5:2 A5:2 F5:2 D5:2 R:4
 C6:2 E6:2 D6:4 R:2 G5:2 C6:4
 `;
-
+let jumpDuration = 20; // default, will get recalculated
 const bunnyPlayer = createQueuedChiptunePlayer();
 
     const commonWords = [
@@ -163,7 +163,8 @@ async function preloadWord(length) {
     document.addEventListener("keydown", (e) => {
   if (e.key === "ArrowUp" && !isJumping) {
     isJumping = true;
-    jumpFrame = 20;
+    jumpDuration = Math.floor(20 * BASE_SPEED / currentSpeed); // dynamic duration
+	jumpFrame = jumpDuration;
   }
       const activeEl = document.activeElement;
       if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) return;
@@ -191,7 +192,8 @@ canvas.addEventListener("touchend", (e) => {
 
   if (Math.abs(diffY) > 30 && diffY > 0 && !isJumping) {
     isJumping = true;
-    jumpFrame = 20;
+    jumpDuration = Math.floor(20 * BASE_SPEED / currentSpeed);
+  jumpFrame = jumpDuration;
   } else if (Math.abs(diffX) > 30) {
     if (diffX > 0 && playerLane < 2) {
       playerLane++;
@@ -206,7 +208,7 @@ canvas.addEventListener("touchend", (e) => {
     });
 
     function drawPlayer() {
-  const jumpOffset = isJumping ? -Math.sin((20 - jumpFrame) / 20 * Math.PI) * JUMP_HEIGHT : 0;
+  const jumpOffset = isJumping ? -Math.sin((jumpDuration - jumpFrame) / jumpDuration * Math.PI) * JUMP_HEIGHT : 0;
       ctx.fillStyle = "white";
       const x = lanes[playerLane];
       const forwardOffset = 0;
