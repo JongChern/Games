@@ -457,18 +457,21 @@ let alternateCarrotTheme = true;
           if (letter.letter === expected) {
            
 
-			if (letter.letter === expected) {
+			if (bunnyPlayer.getQueueLength()==0) {
+				console.log("Alpahbet play");
+				bunnyPlayer.interruptAndPlay(bunnyTheme_0, 120);
+				} else {
 			  if (alternateCarrotTheme) {
 				bunnyPlayer.queue(bunnyTheme_1, 120);
 			  } else {
 				bunnyPlayer.queue(bunnyTheme_0, 120);
 			  }
 			  alternateCarrotTheme = !alternateCarrotTheme;
-			
+			}
 		   
 		   
             
-          }
+          
           collectedLetters.push(letter.letter);
             if (document.getElementById("voiceToggle")?.checked) {
           const sayLetter = new SpeechSynthesisUtterance(letter.letter);
@@ -503,7 +506,7 @@ let alternateCarrotTheme = true;
       });
 
       if (collectedLetters.join("") === targetWord) {
-        bunnyPlayer.queue(bunnyTheme_2, 120);
+        bunnyPlayer.interruptAndPlay(bunnyTheme_2, 120);
         if (document.getElementById("voiceToggle")?.checked) {
         const utterance = new SpeechSynthesisUtterance(targetWord);
         utterance.lang = "en-GB";
@@ -608,13 +611,7 @@ let alternateCarrotTheme = true;
   gamePaused = !gamePaused;
 });
 
-    setInterval(() => {
-      const now = Date.now();
-      if (bunnyPlayer.getQueueLength()
-      ) {
-        bunnyPlayer.queue(bunnyTheme_0, 120);
-      }
-    }, 2000);
+
 
     initWords().then(() => gameLoop());
   function generateMissingIndices() {
@@ -725,9 +722,6 @@ function createQueuedChiptunePlayer(defaultBpm = 120) {
     queue: (melodyString, bpm = defaultBpm, shouldLoop = false) => {
       const parsed = parse(melodyString);
 	  console.log("Current melody queue length:", queue.length);
-      if (queue.length ===0){
-		isPlaying = false;
-	  }
       queue.push({ string: melodyString, bpm, loop: shouldLoop });
 
       if (!isPlaying ) {
@@ -742,8 +736,14 @@ function createQueuedChiptunePlayer(defaultBpm = 120) {
       cancelAnimationFrame(scheduler);
       queue.length = 0;
     },
-	 getQueueLength: () => queue.length,
-    isPlaying: () => isPlaying
+	 getQueueLength: () => melody.length,
+    isPlaying: () => isPlaying,
+	interruptAndPlay: (melodyString, bpm = defaultBpm, shouldLoop = false) => {
+  queue.length = 0;            // Clear any queued melodies
+  cancelAnimationFrame(scheduler); // Stop current scheduler loop
+  isPlaying = true;            // Flag as actively playing
+  startMelody(melodyString, bpm, shouldLoop); // Start new melody immediately
+}
   };
 }
 
