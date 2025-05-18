@@ -37,6 +37,8 @@
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
     let bgY = 0;
+let scrollSinceLastSpawn = 0;
+const SPAWN_EVERY_PX = 180; // tweak as needed
 
     const lanes = [100, 200, 300];
     let playerLane = 1;
@@ -399,6 +401,15 @@ let alternateCarrotTheme = true;
       bgY += effectiveSpeed * 0.5;
       if (bgY > canvas.height) bgY = 0;
 
+const scrollDelta = effectiveSpeed;
+scrollSinceLastSpawn += scrollDelta;
+
+if (scrollSinceLastSpawn >= SPAWN_EVERY_PX && !gameOver && !gamePaused && !autoPlayMode) {
+  spawnObstacle();
+  scrollSinceLastSpawn = 0;
+}
+
+
       ctx.fillStyle = '#88b37f';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -533,18 +544,6 @@ let alternateCarrotTheme = true;
       letters = letters.filter(letter => letter.y < canvas.height);
     }
 
-    spawnTimer = setInterval(() => {
-      if (!gameOver && !gamePaused && !autoPlayMode) {
-        spawnObstacle();
-
-        // Speed up spawn rate while jumping
-        if (isJumping) {
-          setTimeout(() => {
-            if (!gameOver && !gamePaused && !autoPlayMode) spawnObstacle();
-          }, spawnInterval / 2);
-        }
-      }
-    }, spawnInterval);
 
     function gameLoop() {
       update();
@@ -567,9 +566,11 @@ let alternateCarrotTheme = true;
     }
 
     document.getElementById("speedSlider").addEventListener("input", function(e) {
-      currentSpeed = parseFloat(e.target.value);
-      document.getElementById("speedValue").textContent = e.target.value;
-    });
+	  const val = parseFloat(e.target.value);
+	  currentSpeed = val;
+	  document.getElementById("speedValue").textContent = val;
+	  localStorage.setItem("lastSpeed", val); // ← Add this line
+	});
 
     document.getElementById("missingLettersSlider").addEventListener("input", function(e) {
       const value = parseInt(e.target.value);
