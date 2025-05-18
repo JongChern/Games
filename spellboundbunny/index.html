@@ -1,126 +1,156 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Spellbound Bunny</title>
-  <style>
+ < !DOCTYPE html >
+ < html lang = "en" >
+     < head >
+     < meta charset = "UTF-8" /  >
+     < meta name = "viewport" content = "width=device-width, initial-scale=1.0" /  >
+     < title > Spellbound Bunny <  / title >
+     < style >
     body {
-      margin: 0;
-      overflow: hidden;
-      background: #222;
-    }
-    canvas {
-      display: block;
-      background: linear-gradient(to top, #333, #666);
-      touch-action: none;
-    }
-	
-  </style>
-</head>
-<body>
-  <canvas id="gameCanvas"></canvas>
-  <button id="settingsToggle" style="position: absolute; top: 10px; right: 10px; z-index: 10;">⚙️ Settings</button>
-<div id="settingsPanel" style="display: none; position: absolute; top: 50px; right: 10px; background: #333; color: white; padding: 10px; border: 1px solid #555; border-radius: 4px; z-index: 10;">
-  <label for="speedSlider">Game Speed:</label><br>
-  <input type="range" id="speedSlider" min="1" max="15" step="0.1" value="5">
-  <span id="speedValue">5</span><br><br>
-  <label><input type="checkbox" id="voiceToggle" checked> Enable Voice</label>
+    margin: 0;
+    overflow: hidden;
+    background:  # 222;
+}
+canvas {
+    display: block;
+    background: linear - gradient(to top,  # 333,  # 666);
+    touch - action: none;
+}
 
-  <label><input type="checkbox" id="hardMode"> Hard Mode</label><br><br>
+ <  / style >
+ <  / head >
+ < body >
+ < canvas id = "gameCanvas" >  <  / canvas >
+     < button id = "settingsToggle" style = "position: absolute; top: 10px; right: 10px; z-index: 10;" > ⚙️ Settings <  / button >
+     < div id = "settingsPanel" style = "display: none; position: absolute; top: 50px; right: 10px; background: #333; color: white; padding: 10px; border: 1px solid #555; border-radius: 4px; z-index: 10;" >
+     < label for  = "speedSlider" > Game Speed:  <  / label >  < br >
+         < input type = "range" id = "speedSlider" min = "1" max = "15" step = "0.1" value = "5" >
+         < span id = "speedValue" > 5 <  / span >  < br >  < br >
+         < label >  < input type = "checkbox" id = "voiceToggle" checked > Enable Voice <  / label >
 
-  <label for="missingLettersSlider">Missing Letters:</label><br>
-  <input type="range" id="missingLettersSlider" min="0" max="3" step="1" value="0">
-  <span id="missingLettersValue">0</span>
-</div>
+         < label >  < input type = "checkbox" id = "hardMode" > Hard Mode <  / label >  < br >  < br >
 
-  <script>
-const BASE_JUMP_DURATION = 26; // Tweak this for feel
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
-	  let JUMP_HEIGHT = canvas.height * 0.1;
-	  let playerSize = canvas.height * 0.07;
+         < label for  = "missingLettersSlider" > Missing Letters:  <  / label >  < br >
+             < input type = "range" id = "missingLettersSlider" min = "0" max = "3" step = "1" value = "0" >
+             < span id = "missingLettersValue" > 0 <  / span >
+             <  / div >
+
+             < script >
+            const showTrees = false;
+    const BASE_JUMP_DURATION = 26; // Tweak this for feel
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+let JUMP_HEIGHT = canvas.height * 0.1;
+let playerSize = canvas.height * 0.07;
 let SPAWN_EVERY_PX = 180; // will be recalculated
-	function resizeCanvas() {
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = window.innerWidth * dpr;
-  canvas.height = window.innerHeight * dpr;
-  ctx.setTransform(1, 0, 0, 1, 0, 0); // reset transform
-  ctx.scale(dpr, dpr);
+const laneCount = 3;
+let lanes = [];
+let playerY = canvas.height * 0.8;
+let gamePaused = false;
+let autoPlayMode = true;
+
+let leftTreeX, rightTreeX;
+
+function updateTreePositions() {
+    leftTreeX = Math.round(window.innerWidth * 0.05);
+    rightTreeX = Math.round(window.innerWidth * 0.95);
+}
+
+function resizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+
+    const displayWidth = window.innerWidth;
+    const displayHeight = window.innerHeight;
+
+    canvas.style.width = displayWidth + "px";
+    canvas.style.height = displayHeight + "px";
+
+    canvas.width = Math.floor(displayWidth * dpr);
+    canvas.height = Math.floor(displayHeight * dpr);
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0); // reset
+    ctx.scale(dpr, dpr);
+
+    // Update game logic dimensions based on window size (NOT canvas.height)
+    playerY = displayHeight * 0.8;
+    JUMP_HEIGHT = displayHeight * 0.13;
+    playerSize = displayHeight * 0.07;
+    SPAWN_EVERY_PX = Math.max(100, displayHeight * 0.4);
+
+    updateLanes();
+    updateTreePositions(); // <-- call here
 }
 
 window.addEventListener("resize", resizeCanvas);
+window.addEventListener("orientationchange", resizeCanvas);
 resizeCanvas(); // Call once initially
-	
-	
-    let bgY = 0;
+
+
+let bgY = 0;
 let scrollSinceLastSpawn = 0;
 
+let playerLane = 1;
 
-    
-    let playerLane = 1;
-const laneCount = 3;
-const lanes = Array.from({ length: laneCount }, (_, i) =>
-  ((i + 1) * canvas.width) / (laneCount + 1)
-);
-const playerY = canvas.height * 0.8;
+function updateLanes() {
+    lanes = Array.from({
+        length: laneCount
+    }, (_, i) =>
+            ((i + 1) * window.innerWidth) / (laneCount + 1));
+}
 
-    let obstacles = [];
-    let letters = [];
-    let collectedLetters = [];
-    let targetWord = "";
-    let nextWord = "";
-    let score = 0;
+let obstacles = [];
+let letters = [];
+let collectedLetters = [];
+let targetWord = "";
+let nextWord = "";
+let score = 0;
 let scorePulseFrame = 0;
 const SCORE_PULSE_DURATION = 60;
 let scorePops = [];
-    let gameOver = false;
-let gamePaused = false;
-let autoPlayMode = true;
+let gameOver = false;
+
 let missingIndices = [];
 
-    let currentWordLength = 3;
-    const BASE_WORD_LENGTH = 3;
-    const MAX_WORD_LENGTH = 9;
+let currentWordLength = 3;
+const BASE_WORD_LENGTH = 3;
+const MAX_WORD_LENGTH = 9;
 
-    const SPEED_INCREMENT = 0.05;
-    const MAX_SPEED_MULTIPLIER = 2.0;
-    const BASE_SPEED = 5;
-    let currentSpeed = BASE_SPEED;
-    let spawnInterval = 1000;
-    let spawnTimer;
+const SPEED_INCREMENT = 0.05;
+const MAX_SPEED_MULTIPLIER = 2.0;
+const BASE_SPEED = 5;
+let currentSpeed = BASE_SPEED;
+let spawnInterval = 1000;
+let spawnTimer;
 
-    let touchStartX = null;
+let touchStartX = null;
 let touchStartY = null;
-    let hopFrame = 0;
-    let walkFrame = 0;
+let hopFrame = 0;
+let walkFrame = 0;
 let isJumping = false;
 let landingFrame = 0;
-
 
 let jumpFrame = 0;
 let jumpLandOffset = 0;
 
-    const bunnyTheme_0 = `
+const bunnyTheme_0 = `
 C5:4 R:2 D5:4 E5:4 R:2
 G5:8 F5:4 E5:2 D5:2 R:4
 C5:4 G4:4 A4:4 R:2 C5:4
 E5:8 R:4 F5:2 G5:2 C6:4 R:4
 `;
-    const bunnyTheme_1 = `
+const bunnyTheme_1 = `
 C5:2 E5:2 G5:2 R:2 G5:2 A5:4
 F5:2 D5:2 C5:4 R:2 C5:2 G5:4
 E5:2 R:2 E5:2 G5:2 A5:4 R:4
 C6:2 B5:2 A5:2 G5:2 R:4
 `;
-    const bunnyTheme_2 = `
+const bunnyTheme_2 = `
 A5:2 B5:2 C6:4 R:1 C6:2 D6:2 R:1
 E6:4 R:2 G5:2 A5:2 B5:2 C6:4
 R:2 G5:2 A5:2 F5:2 D5:2 R:4
 C6:2 E6:2 D6:4 R:2 G5:2 C6:4
 `;
 
-	const bunnyTheme_3 = `
+const bunnyTheme_3 = `
 	C6:2 B5:2 A5:2 G5:2 F5:2 E5:2 D5:2 C5:2
 C5:4 R:2 C4:2 G4:4 R:4
 `;
@@ -128,215 +158,215 @@ C5:4 R:2 C4:2 G4:4 R:4
 let jumpDuration = 20; // default, will get recalculated
 let bunnyPlayer;
 
-    const commonWords = [
-  "THE", "AND", "YOU", "FOR", "ARE", "WITH", "THIS", "HAVE", "FROM", "ONE",
-  "WORD", "TIME", "YEAR", "MAKE", "GOOD", "PEOPLE", "LOOK", "WANT", "COME", "USE",
-  "FIND", "GIVE", "WORK", "MANY", "THING", "FIRST", "WELL", "LIFE", "EVEN", "TELL",
-  "CALL", "LONG", "GREAT", "HELP", "SAY", "KEEP", "TURN", "MOST", "RIGHT", "TRY",
-  "NEW", "OLD", "DAY", "HIGH", "OFF", "NEXT", "NAME", "SHOW", "FEEL", "MOVE",
-  "OVER", "BACK", "NEVER", "PLACE", "AFTER", "STILL", "HOME", "WORLD", "UNDER", "SMALL",
-  "AGAIN", "EVERY", "START", "GROUP", "STATE", "POINT", "LARGE", "THINK", "WHERE", "THREE",
-  "WHILE", "NUMBER", "ABOUT", "WATER", "THING", "THOSE", "FAMILY", "AROUND", "ALWAYS", "HOUSE",
-  "ALMOST", "SCHOOL", "FRIEND", "STORY", "ALONE", "MONEY", "MOTHER", "FATHER", "MUSIC", "HAPPY",
-  "CLOSE", "REALLY", "SOMETHING", "BEFORE", "LEARN", "LITTLE", "LEAVE", "YOUNG", "STAND", "EVER",
-  "NIGHT", "LIGHT", "HEART", "VOICE", "ENJOY", "TOGETHER", "QUESTION", "ANSWER", "TRUTH", "MEET",
-  "BUILD", "CLEAR", "CHANGE", "LEADER", "FOCUS", "STUDY", "HARD", "EASY", "SHORT", "STRONG",
-  "COVER", "PIECE", "CAUSE", "REASON", "BEGIN", "ORDER", "BETTER", "INSIDE", "OUTSIDE", "NATURE",
-  "EARLY", "FINAL", "CHOICE", "ENOUGH", "POWER", "NATION", "PUBLIC", "PERSON", "SYSTEM", "RIGHTS",
-  "OFTEN", "LEVEL", "RESULT", "PROCESS", "REPORT", "SOCIAL", "HUMAN", "VALUES", "CENTER", "MIND",
-  "VOICE", "BODY", "IMAGE", "MODEL", "SKILL", "TOOLS", "MARKET", "DRIVE", "EVENT", "TIMES",
-  "SPACE", "FORM", "LINES", "FIELD", "TOPIC", "IDEAS", "VALUE", "GOALS", "MAYBE", "RULES",
-  "BREAK", "LIMIT", "WORTH", "STEPS", "CHAIN", "CLOCK", "SPEED", "SCENE", "SCORE", "PLANS",
-  "TYPES", "PLANT", "EARTH", "THINK", "NAMES", "THEME", "FRONT", "MOVES", "PLANE", "TRAIN",
-  "CROSS", "TRACK", "POINT", "GRADE", "GRAPH", "RANGE", "ANGLE", "SCALE", "STARS", "FLASH",
-  "PAINT", "PIANO", "SOUND", "VOICE", "COLOR", "SHAPE", "BRING", "DRINK", "LAUGH", "SMILE",
-  "WATCH", "TASTE", "SMELL", "FEARS", "SHARE", "THROW", "WRITE", "READS", "SENDS", "WORDS",
-  "CHECK", "MATCH", "LEADS", "PLAYS", "TRIES", "ENJOY", "LOVES", "HATES", "DREAM", "RESTS",
-  "RISES", "FALLS", "CLOUD", "STORM", "SUNNY", "RAINY", "WAVES", "WINDY", "FIRES", "PLANS",
-  "TOOLS", "IDEAS", "TRUTH", "CAUSE", "EFFECT", "NOTES", "TIMES", "NAMES", "TYPES", "VIEWS",
-  "VISIT", "STOPS", "CALLS", "HELLO", "NIGHT", "MORNS", "MORAL", "FABLE", "LIONS", "TIGER",
-  "HORSE", "RABIT", "BEARS", "MOUSE", "SHEEP", "ZEBRA", "BIRDS", "BEES", "PLANS", "MAPLE",
-  "BREAD", "WHEAT", "RICE", "NOISE", "QUIET", "BLUES", "TUNES", "SINGS", "HUMMS", "MELOD",
-  "NOTES", "SONGS", "PLAYS", "GAMES", "CHESS", "CARDS", "BLOCK", "STACK", "FALLS", "SHAPE",
-  "CUBES", "ROLLS", "BALLS", "ROUND", "TUBES", "STICK", "GLUE", "TAPE", "FOLDS", "TURNS",
-  "JUMPS", "HOPS", "RUNNS", "WALKS", "SKIPS", "PUSH", "PULL", "KICKS", "BENDS", "LIFTS",
-  "CATCH", "THROW", "TURNS", "START", "PAUSE", "RESET", "LOOPS", "BREAK", "RETRY", "BEGIN",
-  "WATCH", "START", "CHILD", "YOUTH", "ADULT", "ELDER", "WOMAN", "MANLY", "TEENS", "YOUNG",
-  "OLDER", "KNOWS", "LEARN", "SHARE", "TEACH", "GUIDE", "LEADS", "BUILD", "MAKES", "FINDS",
-  "PLANS", "CHOSE", "FOLKS", "CROWD", "GROUP", "CLASS", "GRADE", "LEVEL", "DEGREE", "POINT",
-  "LINES", "SLOPE", "TILES", "FLOOR", "WALLS", "DOORS", "CLOSE", "OPENS", "LOCKS", "TURNS"
+const commonWords = [
+    "THE", "AND", "YOU", "FOR", "ARE", "WITH", "THIS", "HAVE", "FROM", "ONE",
+    "WORD", "TIME", "YEAR", "MAKE", "GOOD", "PEOPLE", "LOOK", "WANT", "COME", "USE",
+    "FIND", "GIVE", "WORK", "MANY", "THING", "FIRST", "WELL", "LIFE", "EVEN", "TELL",
+    "CALL", "LONG", "GREAT", "HELP", "SAY", "KEEP", "TURN", "MOST", "RIGHT", "TRY",
+    "NEW", "OLD", "DAY", "HIGH", "OFF", "NEXT", "NAME", "SHOW", "FEEL", "MOVE",
+    "OVER", "BACK", "NEVER", "PLACE", "AFTER", "STILL", "HOME", "WORLD", "UNDER", "SMALL",
+    "AGAIN", "EVERY", "START", "GROUP", "STATE", "POINT", "LARGE", "THINK", "WHERE", "THREE",
+    "WHILE", "NUMBER", "ABOUT", "WATER", "THING", "THOSE", "FAMILY", "AROUND", "ALWAYS", "HOUSE",
+    "ALMOST", "SCHOOL", "FRIEND", "STORY", "ALONE", "MONEY", "MOTHER", "FATHER", "MUSIC", "HAPPY",
+    "CLOSE", "REALLY", "SOMETHING", "BEFORE", "LEARN", "LITTLE", "LEAVE", "YOUNG", "STAND", "EVER",
+    "NIGHT", "LIGHT", "HEART", "VOICE", "ENJOY", "TOGETHER", "QUESTION", "ANSWER", "TRUTH", "MEET",
+    "BUILD", "CLEAR", "CHANGE", "LEADER", "FOCUS", "STUDY", "HARD", "EASY", "SHORT", "STRONG",
+    "COVER", "PIECE", "CAUSE", "REASON", "BEGIN", "ORDER", "BETTER", "INSIDE", "OUTSIDE", "NATURE",
+    "EARLY", "FINAL", "CHOICE", "ENOUGH", "POWER", "NATION", "PUBLIC", "PERSON", "SYSTEM", "RIGHTS",
+    "OFTEN", "LEVEL", "RESULT", "PROCESS", "REPORT", "SOCIAL", "HUMAN", "VALUES", "CENTER", "MIND",
+    "VOICE", "BODY", "IMAGE", "MODEL", "SKILL", "TOOLS", "MARKET", "DRIVE", "EVENT", "TIMES",
+    "SPACE", "FORM", "LINES", "FIELD", "TOPIC", "IDEAS", "VALUE", "GOALS", "MAYBE", "RULES",
+    "BREAK", "LIMIT", "WORTH", "STEPS", "CHAIN", "CLOCK", "SPEED", "SCENE", "SCORE", "PLANS",
+    "TYPES", "PLANT", "EARTH", "THINK", "NAMES", "THEME", "FRONT", "MOVES", "PLANE", "TRAIN",
+    "CROSS", "TRACK", "POINT", "GRADE", "GRAPH", "RANGE", "ANGLE", "SCALE", "STARS", "FLASH",
+    "PAINT", "PIANO", "SOUND", "VOICE", "COLOR", "SHAPE", "BRING", "DRINK", "LAUGH", "SMILE",
+    "WATCH", "TASTE", "SMELL", "FEARS", "SHARE", "THROW", "WRITE", "READS", "SENDS", "WORDS",
+    "CHECK", "MATCH", "LEADS", "PLAYS", "TRIES", "ENJOY", "LOVES", "HATES", "DREAM", "RESTS",
+    "RISES", "FALLS", "CLOUD", "STORM", "SUNNY", "RAINY", "WAVES", "WINDY", "FIRES", "PLANS",
+    "TOOLS", "IDEAS", "TRUTH", "CAUSE", "EFFECT", "NOTES", "TIMES", "NAMES", "TYPES", "VIEWS",
+    "VISIT", "STOPS", "CALLS", "HELLO", "NIGHT", "MORNS", "MORAL", "FABLE", "LIONS", "TIGER",
+    "HORSE", "RABIT", "BEARS", "MOUSE", "SHEEP", "ZEBRA", "BIRDS", "BEES", "PLANS", "MAPLE",
+    "BREAD", "WHEAT", "RICE", "NOISE", "QUIET", "BLUES", "TUNES", "SINGS", "HUMMS", "MELOD",
+    "NOTES", "SONGS", "PLAYS", "GAMES", "CHESS", "CARDS", "BLOCK", "STACK", "FALLS", "SHAPE",
+    "CUBES", "ROLLS", "BALLS", "ROUND", "TUBES", "STICK", "GLUE", "TAPE", "FOLDS", "TURNS",
+    "JUMPS", "HOPS", "RUNNS", "WALKS", "SKIPS", "PUSH", "PULL", "KICKS", "BENDS", "LIFTS",
+    "CATCH", "THROW", "TURNS", "START", "PAUSE", "RESET", "LOOPS", "BREAK", "RETRY", "BEGIN",
+    "WATCH", "START", "CHILD", "YOUTH", "ADULT", "ELDER", "WOMAN", "MANLY", "TEENS", "YOUNG",
+    "OLDER", "KNOWS", "LEARN", "SHARE", "TEACH", "GUIDE", "LEADS", "BUILD", "MAKES", "FINDS",
+    "PLANS", "CHOSE", "FOLKS", "CROWD", "GROUP", "CLASS", "GRADE", "LEVEL", "DEGREE", "POINT",
+    "LINES", "SLOPE", "TILES", "FLOOR", "WALLS", "DOORS", "CLOSE", "OPENS", "LOCKS", "TURNS"
 ];
 
 document.body.addEventListener("touchmove", (e) => {
-  e.preventDefault();
-}, { passive: false });
-
-function resizeCanvas() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  JUMP_HEIGHT = canvas.height * 0.13;
-  playerSize = canvas.height * 0.07;
-    SPAWN_EVERY_PX = Math.max(100, canvas.height * 0.4); // Minimum 100px, or 20% of height
-}
+    e.preventDefault();
+}, {
+    passive: false
+});
 
 async function preloadWord(length) {
-  try {
-    const hardMode = document.getElementById("hardMode")?.checked;
-    if (hardMode) {
-      const res = await fetch(`https://random-word-api.herokuapp.com/word?length=${length}`);
-      const data = await res.json();
-      return data[0].toUpperCase();
-    } else {
-      const candidates = commonWords.filter(word => word.length === length);
-      const choice = candidates[Math.floor(Math.random() * candidates.length)];
-      return choice;
+    try {
+        const hardMode = document.getElementById("hardMode")?.checked;
+        if (hardMode) {
+            const res = await fetch(`https://random-word-api.herokuapp.com/word?length=${length}`);
+            const data = await res.json();
+            return data[0].toUpperCase();
+        } else {
+            const candidates = commonWords.filter(word => word.length === length);
+            const choice = candidates[Math.floor(Math.random() * candidates.length)];
+            return choice;
+        }
+    } catch {
+        return "RUN";
     }
-  } catch {
-    return "RUN";
-      }
-    }
+}
 
-    async function initWords() {
-      targetWord = await preloadWord(currentWordLength);
-      missingIndices = generateMissingIndices();
-      nextWord = await preloadWord(currentWordLength + 1);
-    }
+async function initWords() {
+    targetWord = await preloadWord(currentWordLength);
+    missingIndices = generateMissingIndices();
+    nextWord = await preloadWord(currentWordLength + 1);
+}
 
-    document.addEventListener("keydown", (e) => {
-  if (e.key === "ArrowUp" && !isJumping) {
-    isJumping = true;
-    jumpDuration = Math.floor(BASE_JUMP_DURATION * (canvas.height / 800) * (BASE_SPEED / currentSpeed));
-	jumpFrame = jumpDuration;
-  }
-      const activeEl = document.activeElement;
-      if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) return;
-      if ((e.key === "ArrowLeft" || e.key === "a" || e.key === "A") && playerLane > 0) {
+document.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowUp" && !isJumping) {
+        isJumping = true;
+        jumpDuration = Math.floor(BASE_JUMP_DURATION * (window.innerHeight / 800) * (BASE_SPEED / currentSpeed));
+
+        jumpFrame = jumpDuration;
+    }
+    const activeEl = document.activeElement;
+    if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA"))
+        return;
+    if ((e.key === "ArrowLeft" || e.key === "a" || e.key === "A") && playerLane > 0) {
         playerLane--;
         hopFrame = 10;
-      }
-      if ((e.key === "ArrowRight" || e.key === "d" || e.key === "D") && playerLane < 2) {
+    }
+    if ((e.key === "ArrowRight" || e.key === "d" || e.key === "D") && playerLane < 2) {
         playerLane++;
         hopFrame = 10;
-      }
-    });
+    }
+});
 
-    canvas.addEventListener("touchstart", (e) => {
-  touchStartX = e.touches[0].clientX;
-  touchStartY = e.touches[0].clientY;
+canvas.addEventListener("touchstart", (e) => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
 });
 
 canvas.addEventListener("touchend", (e) => {
-  if (touchStartX === null || touchStartY === null) return;
+    if (touchStartX === null || touchStartY === null)
+        return;
 
-  const touchEndX = e.changedTouches[0].clientX;
-  const touchEndY = e.changedTouches[0].clientY;
-  const diffX = touchEndX - touchStartX;
-  const diffY = touchStartY - touchEndY; // upward swipe = positive
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+    const diffX = touchEndX - touchStartX;
+    const diffY = touchStartY - touchEndY; // upward swipe = positive
 
-  const absX = Math.abs(diffX);
-  const absY = Math.abs(diffY);
+    const absX = Math.abs(diffX);
+    const absY = Math.abs(diffY);
 
-  // Prioritize horizontal swipes
-  if (absX > absY && absX > 30) {
-    if (diffX > 0 && playerLane < 2) {
-      playerLane++;
-      hopFrame = 10;
-    } else if (diffX < 0 && playerLane > 0) {
-      playerLane--;
-      hopFrame = 10;
+    // Prioritize horizontal swipes
+    if (absX > absY && absX > 30) {
+        if (diffX > 0 && playerLane < 2) {
+            playerLane++;
+            hopFrame = 10;
+        } else if (diffX < 0 && playerLane > 0) {
+            playerLane--;
+            hopFrame = 10;
+        }
+    } else if (diffY > 50 && !isJumping) {
+        // Only jump if swipe is clearly vertical and strong
+        isJumping = true;
+        jumpDuration = Math.floor(BASE_JUMP_DURATION * (canvas.height / 800) * (BASE_SPEED / currentSpeed));
+        jumpFrame = jumpDuration;
     }
-  } else if (diffY > 50 && !isJumping) {
-    // Only jump if swipe is clearly vertical and strong
-    isJumping = true;
-    jumpDuration = Math.floor(BASE_JUMP_DURATION * (canvas.height / 800) * (BASE_SPEED / currentSpeed));
-    jumpFrame = jumpDuration;
-  }
 
-  touchStartX = null;
-  touchStartY = null;
+    touchStartX = null;
+    touchStartY = null;
 });
 
-    function drawPlayer() {
-  const jumpOffset = isJumping ? -Math.sin((jumpDuration - jumpFrame) / jumpDuration * Math.PI) * JUMP_HEIGHT : 0;
-      ctx.fillStyle = "white";
-      const x = lanes[playerLane];
-      const forwardOffset = 0;
-      let settleOffset = 0;
-      if (landingFrame > 0) {
+function drawPlayer() {
+    const jumpOffset = isJumping ? -Math.sin((jumpDuration - jumpFrame) / jumpDuration * Math.PI) * JUMP_HEIGHT : 0;
+    ctx.fillStyle = "white";
+    const x = lanes[playerLane];
+    const forwardOffset = 0;
+    let settleOffset = 0;
+    if (landingFrame > 0) {
         const bounce = Math.sin((10 - landingFrame) / 10 * Math.PI);
         settleOffset = bounce * 8 * (1 - (10 - landingFrame) / 10); // taper bounce down
-      }
-      const y = playerY + jumpOffset + forwardOffset + settleOffset + jumpLandOffset;
+    }
+    const y = playerY + jumpOffset + forwardOffset + settleOffset + jumpLandOffset;
 
-      // Bunny body and head
-      ctx.beginPath();
-      ctx.ellipse(x, y + 22, 18, 22, 0, 0, Math.PI * 2); // body
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(x, y - 4, 14, 0, Math.PI * 2); // head
-      ctx.fill();
+    // Bunny body and head
+    ctx.beginPath();
+    ctx.ellipse(x, y + 22, 18, 22, 0, 0, Math.PI * 2); // body
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x, y - 4, 14, 0, Math.PI * 2); // head
+    ctx.fill();
 
-      // Ears with black highlights
-      ctx.fillStyle = "white";
-      ctx.beginPath();
-      ctx.moveTo(x - 8, y - 16);
-      ctx.quadraticCurveTo(x - 12, y - 40, x - 6, y - 46);
-      ctx.quadraticCurveTo(x - 2, y - 30, x - 8, y - 16);
-      ctx.fill();
-      ctx.strokeStyle = "black";
-      ctx.lineWidth = 1;
-      ctx.stroke();
+    // Ears with black highlights
+    ctx.fillStyle = "white";
+    ctx.beginPath();
+    ctx.moveTo(x - 8, y - 16);
+    ctx.quadraticCurveTo(x - 12, y - 40, x - 6, y - 46);
+    ctx.quadraticCurveTo(x - 2, y - 30, x - 8, y - 16);
+    ctx.fill();
+    ctx.strokeStyle = "black";
+    ctx.lineWidth = 1;
+    ctx.stroke();
 
-      ctx.beginPath();
-      ctx.moveTo(x + 8, y - 16);
-      ctx.quadraticCurveTo(x + 12, y - 40, x + 6, y - 46);
-      ctx.quadraticCurveTo(x + 2, y - 30, x + 8, y - 16);
-      ctx.fill();
-      ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + 8, y - 16);
+    ctx.quadraticCurveTo(x + 12, y - 40, x + 6, y - 46);
+    ctx.quadraticCurveTo(x + 2, y - 30, x + 8, y - 16);
+    ctx.fill();
+    ctx.stroke();
 
-      // Tail puff
-      ctx.beginPath();
-      ctx.arc(x, y + 36, 5, 0, Math.PI * 2);
-      ctx.fillStyle = "white";
-      ctx.fill();
-      ctx.stroke();
+    // Tail puff
+    ctx.beginPath();
+    ctx.arc(x, y + 36, 5, 0, Math.PI * 2);
+    ctx.fillStyle = "white";
+    ctx.fill();
+    ctx.stroke();
 
-      // Shadow
-      const shadowWidth = isJumping ? 10 : 14;
-      const shadowHeight = isJumping ? 3 : 5;
-      const shadowOpacity = isJumping ? 0.1 : 0.2;
-      ctx.fillStyle = `rgba(0, 0, 0, ${shadowOpacity})`;
-      ctx.beginPath();
-      ctx.ellipse(x, y + 45, shadowWidth, shadowHeight, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "white";
+    // Shadow
+    const shadowWidth = isJumping ? 10 : 14;
+    const shadowHeight = isJumping ? 3 : 5;
+    const shadowOpacity = isJumping ? 0.1 : 0.2;
+    ctx.fillStyle = `rgba(0, 0, 0, ${shadowOpacity})`;
+    ctx.beginPath();
+    ctx.ellipse(x, y + 45, shadowWidth, shadowHeight, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "white";
 
-      // Feet
-      const footY = y + 40;
-      if (hopFrame > 0) {
+    // Feet
+    const footY = y + 40;
+    if (hopFrame > 0) {
         ctx.fillRect(x - 12, footY, 5, 10);
         ctx.fillRect(x + 7, footY, 5, 10);
-      } else {
+    } else {
         if (walkFrame % 40 < 20) {
-          ctx.fillRect(x - 12, footY, 5, 10);
+            ctx.fillRect(x - 12, footY, 5, 10);
         } else {
-          ctx.fillRect(x + 7, footY, 5, 10);
+            ctx.fillRect(x + 7, footY, 5, 10);
         }
-      }
     }
+}
 
-    function drawObstacle(obs) {
-      const { x, y } = obs;
-      ctx.fillStyle = "red";
-      ctx.beginPath();
-      ctx.arc(x, y + 20, 20, Math.PI, 0, false);
-      ctx.lineTo(x + 20, y + 20);
-      ctx.closePath();
-      ctx.fill();
+function drawObstacle(obs) {
+    const {
+        x,
+        y
+    } = obs;
+    ctx.fillStyle = "red";
+    ctx.beginPath();
+    ctx.arc(x, y + 20, 20, Math.PI, 0, false);
+    ctx.lineTo(x + 20, y + 20);
+    ctx.closePath();
+    ctx.fill();
 
-      ctx.strokeStyle = "black";
-      ctx.lineWidth = 2;
-      for (let i = -3; i <= 3; i++) {
+    ctx.strokeStyle = "black";
+    ctx.lineWidth = 2;
+    for (let i = -3; i <= 3; i++) {
         const spikeX = x + i * 6;
         const spikeY = y + 20;
         ctx.beginPath();
@@ -344,559 +374,598 @@ canvas.addEventListener("touchend", (e) => {
         ctx.lineTo(spikeX + 3, spikeY - 6);
         ctx.lineTo(spikeX + 6, spikeY);
         ctx.stroke();
-      }
     }
+}
 
-    function drawLetter(letterObj) {
-      const x = letterObj.x;
-      const y = letterObj.y;
+function drawLetter(letterObj) {
+    const x = letterObj.x;
+    const y = letterObj.y;
 
-      ctx.fillStyle = "orange";
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.bezierCurveTo(x - 19.7, y + 11, x - 12.2, y + 36, x, y + 48);
-      ctx.bezierCurveTo(x + 12.2, y + 36, x + 19.7, y + 11, x, y);
-      ctx.fill();
+    ctx.fillStyle = "orange";
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.bezierCurveTo(x - 19.7, y + 11, x - 12.2, y + 36, x, y + 48);
+    ctx.bezierCurveTo(x + 12.2, y + 36, x + 19.7, y + 11, x, y);
+    ctx.fill();
 
-      ctx.strokeStyle = "#cc6600";
-      ctx.lineWidth = 1;
-      for (let i = 1; i < 4; i++) {
+    ctx.strokeStyle = "#cc6600";
+    ctx.lineWidth = 1;
+    for (let i = 1; i < 4; i++) {
         ctx.beginPath();
         ctx.moveTo(x - 4, y + i * 8);
         ctx.lineTo(x + 4, y + i * 8);
         ctx.stroke();
-      }
-
-      ctx.fillStyle = "green";
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineTo(x - 5, y - 12);
-      ctx.lineTo(x - 2, y);
-      ctx.lineTo(x + 2, y - 14);
-      ctx.lineTo(x + 4, y);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.font = "22px Garamond";
-		ctx.fillStyle = "black";
-
-		// Measure the letter
-		const metrics = ctx.measureText(letterObj.letter);
-		const letterWidth = metrics.width;
-		const ascent = metrics.actualBoundingBoxAscent || 16; // fallback for older browsers
-
-		// Centered coordinates
-		const centerX = letterObj.x - (letterWidth / 2);
-		const centerY = letterObj.y + 48 - (48 - ascent) / 2;
-
-		// Draw the text
-		ctx.fillText(letterObj.letter, centerX, centerY);
     }
 
-    function drawTargetWord() {
-      const fontSize = 36.4;
-      ctx.font = `${fontSize}px Garamond`;
-      const spacing = 6;
-      const letterWidths = targetWord.split('').map(l => ctx.measureText(l).width);
-      const totalWidth = letterWidths.reduce((a, b) => a + b, 0) + (targetWord.length - 1) * spacing;
-      const startX = (canvas.width - totalWidth) / 2;
-      const y = 50;
-      const missingCount = parseInt(document.getElementById("missingLettersSlider").value);
-      
-      // missingIndices is now generated once per word
+    ctx.fillStyle = "green";
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x - 5, y - 12);
+    ctx.lineTo(x - 2, y);
+    ctx.lineTo(x + 2, y - 14);
+    ctx.lineTo(x + 4, y);
+    ctx.closePath();
+    ctx.fill();
 
-      let x = startX;
-      for (let i = 0; i < targetWord.length; i++) {
+    ctx.font = "22px Garamond";
+    ctx.fillStyle = "black";
+
+    // Measure the letter
+    const metrics = ctx.measureText(letterObj.letter);
+    const letterWidth = metrics.width;
+    const ascent = metrics.actualBoundingBoxAscent || 16; // fallback for older browsers
+
+    // Centered coordinates
+    const centerX = letterObj.x - (letterWidth / 2);
+    const centerY = letterObj.y + 48 - (48 - ascent) / 2;
+
+    // Draw the text
+    ctx.fillText(letterObj.letter, centerX, centerY);
+}
+
+function drawTargetWord() {
+    const fontSize = 36.4;
+    ctx.font = `${fontSize}px Garamond`;
+    const spacing = 6;
+    const letterWidths = targetWord.split('').map(l => ctx.measureText(l).width);
+    const totalWidth = letterWidths.reduce((a, b) => a + b, 0) + (targetWord.length - 1) * spacing;
+    const startX = (window.innerWidth - totalWidth) / 2;
+    const y = 50;
+    const missingCount = parseInt(document.getElementById("missingLettersSlider").value);
+
+    // missingIndices is now generated once per word
+
+    let x = startX;
+    for (let i = 0; i < targetWord.length; i++) {
         ctx.fillStyle = missingIndices.includes(i) ? "gray" : (collectedLetters[i] === targetWord[i] ? "lime" : "white");
         const showLetter = missingIndices.includes(i)
-          ? (collectedLetters[i] === targetWord[i] ? targetWord[i] : "_")
-          : targetWord[i];
+             ? (collectedLetters[i] === targetWord[i] ? targetWord[i] : "_")
+             : targetWord[i];
         ctx.fillText(showLetter, x, y);
         x += letterWidths[i] + spacing;
-      }
     }
+}
 
-    function spawnObstacle() {
-      const laneIndices = [0, 1, 2];
-      const redLanes = [];
+function spawnObstacle() {
+    const laneIndices = [0, 1, 2];
+    const redLanes = [];
 
-      laneIndices.forEach(lane => {
+    laneIndices.forEach(lane => {
         if (currentSpeed < BASE_SPEED * MAX_SPEED_MULTIPLIER) {
-          if (Math.random() < 0.4) redLanes.push(lane);
-        } else {
-          if (Math.random() < 0.7) redLanes.push(lane);
+            if (Math.random() < 0.4)
+                redLanes.push(lane);
+            } else {
+                if (Math.random() < 0.7)
+                    redLanes.push(lane);
+                }
+            });
+
+            if (redLanes.length >= 3)
+                redLanes.splice(Math.floor(Math.random() * redLanes.length), 1);
+            if (currentSpeed < BASE_SPEED * MAX_SPEED_MULTIPLIER && redLanes.length >= 2)
+                redLanes.splice(Math.floor(Math.random() * redLanes.length), 1);
+
+            redLanes.forEach(lane => {
+                obstacles.push({
+                    x: lanes[lane],
+                    y: -50
+                });
+            });
+
+            if (Math.random() < 0.36 && targetWord && collectedLetters.length < targetWord.length) {
+                let letterToShow;
+                if (Math.random() < 0.5) {
+                    letterToShow = targetWord[collectedLetters.length];
+                } else {
+                    letterToShow = targetWord[Math.floor(Math.random() * targetWord.length)];
+                }
+
+                const availableLanes = laneIndices.filter(l => !redLanes.includes(l));
+                if (availableLanes.length > 0) {
+                    const lane = availableLanes[Math.floor(Math.random() * availableLanes.length)];
+                    letters.push({
+                        letter: letterToShow,
+                        x: lanes[lane],
+                        y: -50
+                    });
+                }
+            }
         }
-      });
+        let alternateCarrotTheme = true;
+        async function update() {
+            if (gameOver)
+                return;
+            if (gamePaused)
+                return;
 
-      if (redLanes.length >= 3) redLanes.splice(Math.floor(Math.random() * redLanes.length), 1);
-      if (currentSpeed < BASE_SPEED * MAX_SPEED_MULTIPLIER && redLanes.length >= 2) redLanes.splice(Math.floor(Math.random() * redLanes.length), 1);
+            const effectiveSpeed = isJumping ? currentSpeed * 1.75 : currentSpeed;
+            bgY += effectiveSpeed * 0.5;
+            if (bgY > canvas.height)
+                bgY = 0;
 
-      redLanes.forEach(lane => {
-        obstacles.push({ x: lanes[lane], y: -50 });
-      });
+            const scrollDelta = effectiveSpeed;
+            scrollSinceLastSpawn += scrollDelta;
 
-      if (Math.random() < 0.36 && targetWord && collectedLetters.length < targetWord.length) {
-        let letterToShow;
-        if (Math.random() < 0.5) {
-          letterToShow = targetWord[collectedLetters.length];
-        } else {
-          letterToShow = targetWord[Math.floor(Math.random() * targetWord.length)];
+            if (scrollSinceLastSpawn >= SPAWN_EVERY_PX && !gameOver && !gamePaused && !autoPlayMode) {
+                spawnObstacle();
+                scrollSinceLastSpawn = 0;
+            }
+
+            ctx.fillStyle = '#88b37f';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            if (showTrees) {
+                for (let y = Math.floor(bgY % 100) - 100; y < canvas.height; y += 100) {
+                    ctx.fillStyle = '#5a3e1b';
+                    [leftTreeX, rightTreeX].forEach(x => {
+                        ctx.fillRect(x, y + 40, 10, 40);
+
+                        ctx.beginPath();
+                        ctx.fillStyle = '#2f6b2f';
+                        ctx.arc(x + 5, y + 30, 20, 0, Math.PI * 2);
+                        ctx.fill();
+                    });
+                }
+            }
+
+            if (autoPlayMode && Math.random() < 0.02 && !isJumping) {
+                isJumping = true;
+                jumpFrame = 20;
+            }
+            if (autoPlayMode && hopFrame === 0 && Math.random() < 0.02) {
+                const direction = Math.random() < 0.5 ? -1 : 1;
+                const newLane = playerLane + direction;
+                if (newLane >= 0 && newLane <= 2) {
+                    playerLane = newLane;
+                    hopFrame = 10;
+                }
+            }
+
+            for (let obs of obstacles) {
+                obs.y += effectiveSpeed;
+                drawObstacle(obs);
+
+                if (!isJumping &&
+                    obs.y + playerSize > playerY &&
+                    obs.y < playerY + playerSize &&
+                    obs.x === lanes[playerLane]) {
+                    gameOver = true;
+                    bunnyPlayer.interruptAndPlay(bunnyTheme_3, 120);
+                    document.getElementById("gameOverOverlay").style.display = "flex";
+                    document.getElementById("finalScore").textContent = score;
+
+                    return;
+
+                }
+            }
+
+            for (let i = letters.length - 1; i >= 0; i--) {
+                const letter = letters[i];
+                letter.y += effectiveSpeed;
+                drawLetter(letter);
+
+                if (!isJumping &&
+                    letter.y + playerSize > playerY &&
+                    letter.y < playerY + playerSize &&
+                    letter.x === lanes[playerLane]) {
+                    const expected = targetWord[collectedLetters.length];
+                    if (letter.letter === expected) {
+                        const isCompletingWord = collectedLetters.length + 1 === targetWord.length;
+                        if (!isCompletingWord) {
+                            score += 1;
+
+                            // Always push +1 above bunny head, but mark whether it's part of final word
+                            scorePops.push({
+                                x: lanes[playerLane] - 10,
+                                y: playerY - 20,
+                                text: "+1",
+                                alpha: 1,
+                                frame: 0,
+                                color: "black",
+                                isFinalLetter: isCompletingWord // <- flag it
+                            });
+                        } else {
+                            scorePops.push({
+                                x: lanes[playerLane] - 10,
+                                y: playerY - 20,
+                                text: "X2",
+                                alpha: 1,
+                                frame: 0,
+                                color: "black",
+                                isFinalLetter: isCompletingWord // <- flag it
+                            });
+                        }
+
+                        if (!bunnyPlayer.isPlaying()) {
+                            console.log("Alpahbet play");
+                            bunnyPlayer.interruptAndPlay(bunnyTheme_0, 120);
+                        } else {
+                            if (alternateCarrotTheme) {
+                                bunnyPlayer.queue(bunnyTheme_1, 120);
+                            } else {
+                                bunnyPlayer.queue(bunnyTheme_0, 120);
+                            }
+                            alternateCarrotTheme = !alternateCarrotTheme;
+                        }
+
+                        collectedLetters.push(letter.letter);
+                        if (document.getElementById("voiceToggle")?.checked) {
+                            const sayLetter = new SpeechSynthesisUtterance(letter.letter);
+                            sayLetter.lang = "en-GB";
+                            speechSynthesis.speak(sayLetter);
+                        }
+                    } else {
+                        collectedLetters = [];
+                        score = Math.max(0, score - 1);
+                        scorePops.push({
+                            x: lanes[playerLane] - 10,
+                            y: playerY - 20,
+                            text: "-1",
+                            alpha: 1,
+                            frame: 0
+                        });
+                    }
+                    letters.splice(i, 1);
+                }
+            }
+
+            drawTargetWord();
+            drawPlayer();
+            ctx.fillStyle = "white";
+            const baseFontSize = 16;
+            const pulseSize = scorePulseFrame > 0 ? baseFontSize + scorePulseFrame * 1.5 : baseFontSize;
+            ctx.font = `${pulseSize}px Garamond`;
+            const scoreText = "Score: " + score;
+            const textWidth = ctx.measureText(scoreText).width;
+            // Background
+            ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+            ctx.fillRect(8, 8, textWidth + 24, 28);
+
+            // Text
+            ctx.shadowColor = "#000";
+            ctx.shadowBlur = 4;
+            ctx.fillStyle = "white";
+            ctx.fillText("🥕 " + score, 16, 28);
+            ctx.shadowBlur = 0;
+            if (scorePulseFrame > 0)
+                scorePulseFrame--;
+
+            scorePops.forEach((pop, i) => {
+                ctx.globalAlpha = 1; // no transparency
+                ctx.fillStyle = (pop.text === "-1") ? "red" : "black"; // strong red for -1, black otherwise
+
+                // Make +1 and -1 25% larger
+                const baseSize = 16;
+                const fontSize = (pop.text === "+1" || pop.text === "-1") ? baseSize * 1.50 : baseSize;
+                ctx.font = `${fontSize}px Garamond`;
+
+                ctx.fillText(pop.text, pop.x, pop.y);
+                ctx.globalAlpha = 1;
+
+                pop.y -= 1;
+                pop.alpha -= 0.03;
+                if (pop.alpha <= 0)
+                    scorePops.splice(i, 1);
+            });
+
+            if (collectedLetters.join("") === targetWord) {
+                bunnyPlayer.interruptAndPlay(bunnyTheme_2, 120);
+                if (document.getElementById("voiceToggle")?.checked) {
+                    const utterance = new SpeechSynthesisUtterance(targetWord);
+                    utterance.lang = "en-GB";
+                    speechSynthesis.speak(utterance);
+                }
+                score = score * 2;
+                scorePulseFrame = SCORE_PULSE_DURATION;
+                collectedLetters = [];
+                currentSpeed = Math.min(currentSpeed + BASE_SPEED * SPEED_INCREMENT, BASE_SPEED * MAX_SPEED_MULTIPLIER);
+
+                if (currentWordLength < MAX_WORD_LENGTH) {
+                    currentWordLength++;
+                }
+
+                targetWord = nextWord;
+                missingIndices = generateMissingIndices();
+                nextWord = await preloadWord(Math.min(currentWordLength + 1, MAX_WORD_LENGTH));
+            }
+
+            obstacles = obstacles.filter(obs => obs.y < canvas.height);
+            letters = letters.filter(letter => letter.y < canvas.height);
         }
 
-        const availableLanes = laneIndices.filter(l => !redLanes.includes(l));
-        if (availableLanes.length > 0) {
-          const lane = availableLanes[Math.floor(Math.random() * availableLanes.length)];
-          letters.push({ letter: letterToShow, x: lanes[lane], y: -50 });
+        function gameLoop() {
+            update();
+            walkFrame++;
+            if (hopFrame > 0)
+                hopFrame--;
+            if (landingFrame > 0) {
+                landingFrame--;
+                jumpLandOffset *= 0.85; // gradually return to normal
+                if (landingFrame === 0)
+                    jumpLandOffset = 0;
+            }
+            if (jumpFrame > 0) {
+                jumpFrame--;
+                if (jumpFrame === 0) {
+                    isJumping = false;
+                    landingFrame = 10;
+                    jumpLandOffset = -30; // bunny lands visually forward
+                }
+            }
+            requestAnimationFrame(gameLoop);
         }
-      }
-    }
-let alternateCarrotTheme = true;
-    async function update() {
-      if (gameOver) return;
-      if (gamePaused) return;
 
-      const effectiveSpeed = isJumping ? currentSpeed * 1.75 : currentSpeed;
-      bgY += effectiveSpeed * 0.5;
-      if (bgY > canvas.height) bgY = 0;
-
-const scrollDelta = effectiveSpeed;
-scrollSinceLastSpawn += scrollDelta;
-
-if (scrollSinceLastSpawn >= SPAWN_EVERY_PX && !gameOver && !gamePaused && !autoPlayMode) {
-  spawnObstacle();
-  scrollSinceLastSpawn = 0;
-}
-
-
-      ctx.fillStyle = '#88b37f';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      for (let y = Math.round(bgY % 100) - 100; y < canvas.height; y += 100) {
-        const sidePadding = canvas.width * 0.05; // 5% in from each side
-		const sidePositions = [sidePadding, canvas.width - sidePadding];
-        sidePositions.forEach(x => {
-          ctx.fillStyle = '#5a3e1b';
-          ctx.fillRect(Math.round(x), Math.round(y + 40), 10, 40);
-
-          ctx.beginPath();
-          ctx.fillStyle = '#2f6b2f';
-          ctx.arc(Math.round(x + 5), Math.round(y + 30), 20, 0, Math.PI * 2);
-          ctx.fill();
+        document.getElementById("speedSlider").addEventListener("input", function (e) {
+            const val = parseFloat(e.target.value);
+            currentSpeed = val;
+            document.getElementById("speedValue").textContent = val;
+            localStorage.setItem("lastSpeed", val); // ← Add this line
         });
-      }
 
-      if (autoPlayMode && Math.random() < 0.02 && !isJumping) {
-        isJumping = true;
-        jumpFrame = 20;
-      }
-      if (autoPlayMode && hopFrame === 0 && Math.random() < 0.02) {
-        const direction = Math.random() < 0.5 ? -1 : 1;
-        const newLane = playerLane + direction;
-        if (newLane >= 0 && newLane <= 2) {
-          playerLane = newLane;
-          hopFrame = 10;
-        }
-      }
-      
+        document.getElementById("missingLettersSlider").addEventListener("input", function (e) {
+            const value = parseInt(e.target.value);
+            localStorage.setItem("missingCount", value);
+            document.getElementById("missingLettersValue").textContent = value;
+        });
 
-      for (let obs of obstacles) {
-        obs.y += effectiveSpeed;
-        drawObstacle(obs);
-
-        if (!isJumping &&
-          obs.y + playerSize > playerY &&
-          obs.y < playerY + playerSize &&
-          obs.x === lanes[playerLane]) {
-          gameOver = true;
-		  bunnyPlayer.interruptAndPlay(bunnyTheme_3, 120);
-          document.getElementById("gameOverOverlay").style.display = "flex";
-          document.getElementById("finalScore").textContent = score;
-
-          return;
-
-        }
-      }
-
-      for (let i = letters.length - 1; i >= 0; i--) {
-        const letter = letters[i];
-        letter.y += effectiveSpeed;
-        drawLetter(letter);
-
-        if (!isJumping &&
-          letter.y + playerSize > playerY &&
-          letter.y < playerY + playerSize &&
-          letter.x === lanes[playerLane]) {
-          const expected = targetWord[collectedLetters.length];
-          if (letter.letter === expected) {
-		  const isCompletingWord = collectedLetters.length + 1 === targetWord.length;
-		  if (!isCompletingWord){
-  score += 1;
-
-  // Always push +1 above bunny head, but mark whether it's part of final word
-  scorePops.push({
-    x: lanes[playerLane] - 10,
-    y: playerY - 20,
-    text: "+1",
-    alpha: 1,
-    frame: 0,
-    color: "black",
-    isFinalLetter: isCompletingWord  // <- flag it
-  });
-  } else {
-    scorePops.push({
-    x: lanes[playerLane] - 10,
-    y: playerY - 20,
-    text: "X2",
-    alpha: 1,
-    frame: 0,
-    color: "black",
-    isFinalLetter: isCompletingWord  // <- flag it
-  });
-  }
-
-
-			if (!bunnyPlayer.isPlaying()) {
-				console.log("Alpahbet play");
-				bunnyPlayer.interruptAndPlay(bunnyTheme_0, 120);
-				} else {
-			  if (alternateCarrotTheme) {
-				bunnyPlayer.queue(bunnyTheme_1, 120);
-			  } else {
-				bunnyPlayer.queue(bunnyTheme_0, 120);
-			  }
-			  alternateCarrotTheme = !alternateCarrotTheme;
-			}
-		   
-		   
-            
-          
-          collectedLetters.push(letter.letter);
-            if (document.getElementById("voiceToggle")?.checked) {
-          const sayLetter = new SpeechSynthesisUtterance(letter.letter);
-          sayLetter.lang = "en-GB";
-          speechSynthesis.speak(sayLetter);
-              }
-          } else {
-             collectedLetters = [];
-  score = Math.max(0, score - 1);
-  scorePops.push({ x: lanes[playerLane] - 10, y: playerY - 20, text: "-1", alpha: 1, frame: 0 });
-          }
-          letters.splice(i, 1);
-        }
-      }
-
-      drawTargetWord();
-      drawPlayer();
-      ctx.fillStyle = "white";
-      const baseFontSize = 16;
-      const pulseSize = scorePulseFrame > 0 ? baseFontSize + scorePulseFrame * 1.5 : baseFontSize;
-      ctx.font = `${pulseSize}px Garamond`;
-      const scoreText = "Score: " + score;
-      const textWidth = ctx.measureText(scoreText).width;
-      // Background
-		ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
-		ctx.fillRect(8, 8, textWidth + 24, 28);
-
-		// Text
-		ctx.shadowColor = "#000";
-		ctx.shadowBlur = 4;
-		ctx.fillStyle = "white";
-		ctx.fillText("🥕 " + score, 16, 28);
-		ctx.shadowBlur = 0;
-      if (scorePulseFrame > 0) scorePulseFrame--;
-	  
-      scorePops.forEach((pop, i) => {
-ctx.globalAlpha = 1; // no transparency
-ctx.fillStyle = (pop.text === "-1") ? "red" : "black"; // strong red for -1, black otherwise
-
-  // Make +1 and -1 25% larger
-  const baseSize = 16;
-  const fontSize = (pop.text === "+1" || pop.text === "-1") ? baseSize * 1.50 : baseSize;
-  ctx.font = `${fontSize}px Garamond`;
-
-  ctx.fillText(pop.text, pop.x, pop.y);
-  ctx.globalAlpha = 1;
-
-  pop.y -= 1;
-  pop.alpha -= 0.03;
-  if (pop.alpha <= 0) scorePops.splice(i, 1);
-});
-
-      if (collectedLetters.join("") === targetWord) {
-        bunnyPlayer.interruptAndPlay(bunnyTheme_2, 120);
-        if (document.getElementById("voiceToggle")?.checked) {
-        const utterance = new SpeechSynthesisUtterance(targetWord);
-        utterance.lang = "en-GB";
-        speechSynthesis.speak(utterance);
-          }
-		score = score * 2;
-		scorePulseFrame = SCORE_PULSE_DURATION;
-        collectedLetters = [];
-        currentSpeed = Math.min(currentSpeed + BASE_SPEED * SPEED_INCREMENT, BASE_SPEED * MAX_SPEED_MULTIPLIER);
-
-        if (currentWordLength < MAX_WORD_LENGTH) {
-          currentWordLength++;
+        const savedSpeed = parseFloat(localStorage.getItem("lastSpeed"));
+        if (!isNaN(savedSpeed)) {
+            currentSpeed = savedSpeed;
+            document.getElementById("speedSlider").value = savedSpeed;
+            document.getElementById("speedValue").textContent = savedSpeed;
         }
 
-        targetWord = nextWord;
-        missingIndices = generateMissingIndices();
-        nextWord = await preloadWord(Math.min(currentWordLength + 1, MAX_WORD_LENGTH));
-      }
+        const savedMissing = parseInt(localStorage.getItem("missingCount"));
+        if (!isNaN(savedMissing)) {
+            document.getElementById("missingLettersSlider").value = savedMissing;
+            document.getElementById("missingLettersValue").textContent = savedMissing;
+        }
 
-      obstacles = obstacles.filter(obs => obs.y < canvas.height);
-      letters = letters.filter(letter => letter.y < canvas.height);
-    }
+        const savedHardMode = localStorage.getItem("hardMode");
+        if (savedHardMode !== null) {
+            document.getElementById("hardMode").checked = savedHardMode === "true";
+        }
+        document.getElementById("hardMode").addEventListener("change", function (e) {
+            localStorage.setItem("hardMode", e.target.checked);
+        });
 
+        const savedVoice = localStorage.getItem("voiceToggle");
+        if (savedVoice !== null) {
+            document.getElementById("voiceToggle").checked = savedVoice === "true";
+        }
+        document.getElementById("voiceToggle").addEventListener("change", function (e) {
+            localStorage.setItem("voiceToggle", e.target.checked);
+        });
 
-    function gameLoop() {
-      update();
-      walkFrame++;
-      if (hopFrame > 0) hopFrame--;
-      if (landingFrame > 0) {
-        landingFrame--;
-        jumpLandOffset *= 0.85; // gradually return to normal
-        if (landingFrame === 0) jumpLandOffset = 0;
-      }
-      if (jumpFrame > 0) {
-        jumpFrame--;
-        if (jumpFrame === 0) {
-        isJumping = false;
-        landingFrame = 10;
-        jumpLandOffset = -30; // bunny lands visually forward
-      }
-      }
-      requestAnimationFrame(gameLoop);
-    }
+        document.getElementById("settingsToggle").addEventListener("click", () => {
+            const panel = document.getElementById("settingsPanel");
+            const isVisible = panel.style.display === "block";
+            panel.style.display = isVisible ? "none" : "block";
+            gamePaused = !gamePaused;
+        });
 
-    document.getElementById("speedSlider").addEventListener("input", function(e) {
-	  const val = parseFloat(e.target.value);
-	  currentSpeed = val;
-	  document.getElementById("speedValue").textContent = val;
-	  localStorage.setItem("lastSpeed", val); // ← Add this line
-	});
+        initWords().then(() => gameLoop());
+        function generateMissingIndices() {
+            const count = parseInt(document.getElementById("missingLettersSlider").value);
+            const indices = [];
+            while (indices.length < count && indices.length < targetWord.length) {
+                const rand = Math.floor(Math.random() * targetWord.length);
+                if (!indices.includes(rand))
+                    indices.push(rand);
+            }
+            return indices;
+        }
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden) {
+                gamePaused = true;
+            } else {
+                const settingsPanel = document.getElementById("settingsPanel");
+                const settingsOpen = settingsPanel && settingsPanel.style.display === "block";
+                if (!autoPlayMode && !settingsOpen) {
+                    gamePaused = false;
+                }
+            }
+        });
 
-    document.getElementById("missingLettersSlider").addEventListener("input", function(e) {
-      const value = parseInt(e.target.value);
-      localStorage.setItem("missingCount", value);
-      document.getElementById("missingLettersValue").textContent = value;
-    });
+        function createQueuedChiptunePlayer(defaultBpm = 120) {
+            const audioCtx = new(window.AudioContext || window.webkitAudioContext)();
+            let beatTime = 60 / defaultBpm;
+            let melody = [];
+            let originalMelody = [];
+            let index = 0;
+            let _isPlaying = false;
+            let nextNoteTime = 0;
+            let loop = false;
+            let scheduler;
+            const queue = [];
 
-    const savedSpeed = parseFloat(localStorage.getItem("lastSpeed"));
-    if (!isNaN(savedSpeed)) {
-      currentSpeed = savedSpeed;
-      document.getElementById("speedSlider").value = savedSpeed;
-      document.getElementById("speedValue").textContent = savedSpeed;
-    }
+            function parse(input) {
+                return input.trim().split(/\s+/).map(token => {
+                    if (token.startsWith("R:"))
+                        return {
+                            type: 'rest',
+                            duration: parseInt(token.split(":")[1])
+                        };
+                    const [note, dur] = token.split(":");
+                    return {
+                        type: 'note',
+                        note,
+                        duration: parseInt(dur)
+                    };
+                });
+            }
 
-    const savedMissing = parseInt(localStorage.getItem("missingCount"));
-    if (!isNaN(savedMissing)) {
-      document.getElementById("missingLettersSlider").value = savedMissing;
-      document.getElementById("missingLettersValue").textContent = savedMissing;
-    }
+            function totalQueuedNotes() {
+                return queue.reduce((sum, item) => sum + parse(item.string).length, 0);
+            }
 
-    const savedHardMode = localStorage.getItem("hardMode");
-    if (savedHardMode !== null) {
-      document.getElementById("hardMode").checked = savedHardMode === "true";
-    }
-    document.getElementById("hardMode").addEventListener("change", function(e) {
-      localStorage.setItem("hardMode", e.target.checked);
-    });
+            function freq(note) {
+                const map = {
+                    C: 0,
+                    'C#': 1,
+                    D: 2,
+                    'D#': 3,
+                    E: 4,
+                    F: 5,
+                    'F#': 6,
+                    G: 7,
+                    'G#': 8,
+                    A: 9,
+                    'A#': 10,
+                    B: 11
+                };
+                const match = note.match(/^([A-G]#?)(\d)$/);
+                if (!match)
+                    return 0;
+                const [, n, o] = match;
+                const midi = (parseInt(o) + 1) * 12 + map[n];
+                return 440 * Math.pow(2, (midi - 69) / 12);
+            }
 
-    const savedVoice = localStorage.getItem("voiceToggle");
-    if (savedVoice !== null) {
-      document.getElementById("voiceToggle").checked = savedVoice === "true";
-    }
-    document.getElementById("voiceToggle").addEventListener("change", function(e) {
-      localStorage.setItem("voiceToggle", e.target.checked);
-    });
+            function playNote(noteObj, time) {
+                if (noteObj.type === 'rest')
+                    return;
+                const f = freq(noteObj.note);
+                if (!isFinite(f))
+                    return;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(f, time);
+                gain.gain.setValueAtTime(0.25, time);
+                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
+                osc.connect(gain).connect(audioCtx.destination);
+                osc.start(time);
+                osc.stop(time + 0.3);
+            }
 
-    document.getElementById("settingsToggle").addEventListener("click", () => {
-  const panel = document.getElementById("settingsPanel");
-  const isVisible = panel.style.display === "block";
-  panel.style.display = isVisible ? "none" : "block";
-  gamePaused = !gamePaused;
-});
+            function schedule() {
+                while (index < melody.length && nextNoteTime < audioCtx.currentTime + 0.1) {
+                    const note = melody[index];
+                    playNote(note, nextNoteTime);
+                    nextNoteTime += beatTime * (note.duration / 4);
+                    index++;
+                }
 
+                if (_isPlaying) {
+                    if (index < melody.length) {
+                        scheduler = requestAnimationFrame(schedule);
+                    } else if (loop) {
+                        melody = melody.concat(originalMelody);
+                        scheduler = requestAnimationFrame(schedule);
+                    } else if (queue.length > 0) {
+                        const next = queue.shift();
+                        startMelody(next.string, next.bpm, next.loop);
+                    } else {
+                        _isPlaying = false; // ✅ Melody and queue both finished
+                    }
+                }
+            }
 
+            function startMelody(melodyString, bpm, shouldLoop) {
+                originalMelody = parse(melodyString);
+                melody = originalMelody.slice();
+                index = 0;
+                loop = shouldLoop;
+                beatTime = 60 / bpm;
+                nextNoteTime = audioCtx.currentTime;
+                scheduler = requestAnimationFrame(schedule);
+            }
 
-    initWords().then(() => gameLoop());
-  function generateMissingIndices() {
-  const count = parseInt(document.getElementById("missingLettersSlider").value);
-  const indices = [];
-  while (indices.length < count && indices.length < targetWord.length) {
-    const rand = Math.floor(Math.random() * targetWord.length);
-    if (!indices.includes(rand)) indices.push(rand);
-  }
-  return indices;
-}
-document.addEventListener("visibilitychange", () => {
-  if (document.hidden) {
-    gamePaused = true;
-  } else {
-    const settingsPanel = document.getElementById("settingsPanel");
-    const settingsOpen = settingsPanel && settingsPanel.style.display === "block";
-    if (!autoPlayMode && !settingsOpen) {
-      gamePaused = false;
-    }
-  }
-});
+            return {
+                audioCtx, // ✅ expose audio context so we can call resume() from outside
+                /**
+                 * Queues a melody to be played after the current one.
+                 * Does nothing if it would exceed 20 notes total in the queue.
+                 */
+                queue: (melodyString, bpm = defaultBpm, shouldLoop = false) => {
+                    const parsed = parse(melodyString);
+                    console.log("Current melody queue length:", queue.length);
+                    queue.push({
+                        string: melodyString,
+                        bpm,
+                        loop: shouldLoop
+                    });
 
-function createQueuedChiptunePlayer(defaultBpm = 120) {
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  let beatTime = 60 / defaultBpm;
-  let melody = [];
-  let originalMelody = [];
-  let index = 0;
-  let _isPlaying = false;
-  let nextNoteTime = 0;
-  let loop = false;
-  let scheduler;
-  const queue = [];
+                    if (!_isPlaying) {
+                        _isPlaying = true;
+                        const next = queue.shift();
+                        console.log("Start melody queue length:", queue.length);
+                        startMelody(next.string, next.bpm, next.loop);
+                    }
+                },
+                stop: () => {
+                    _isPlaying = false;
+                    cancelAnimationFrame(scheduler);
+                    queue.length = 0;
+                },
+                getQueueLength: () => melody.length,
+                isPlaying: () => _isPlaying,
+                interruptAndPlay: (melodyString, bpm = defaultBpm, shouldLoop = false) => {
+                    queue.length = 0; // Clear any queued melodies
+                    cancelAnimationFrame(scheduler); // Stop current scheduler loop
+                    _isPlaying = true; // Flag as actively playing
+                    startMelody(melodyString, bpm, shouldLoop); // Start new melody immediately
+                }
+            };
+        }
 
-  function parse(input) {
-    return input.trim().split(/\s+/).map(token => {
-      if (token.startsWith("R:")) return { type: 'rest', duration: parseInt(token.split(":")[1]) };
-      const [note, dur] = token.split(":");
-      return { type: 'note', note, duration: parseInt(dur) };
-    });
-  }
+         <  / script >
+         < div id = "gameOverOverlay" style = "display:none;position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);color:white;font-family:Garamond,serif;z-index:25;align-items:center;justify-content:center;flex-direction:column;text-align:center;" >
+             < h2 > Game Over <  / h2 >
+             < p > Your final score:  < span id = "finalScore" > 0 <  / span >  <  / p >
+             < button onclick = "location.reload()" style = "padding:10px 20px; font-size:18px; cursor:pointer;" > Play Again <  / button >
+             <  / div >
+             < div id = "instructionOverlay" style = "position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); color: white; font-family: Garamond, serif; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; text-align: center; padding: 20px;" >
+             < h1 style = "color: #fff1e6; font-size: 36px; margin-bottom: 20px;" > Spellbound < span style = "color: #88b37f;" > Bunny <  / span >  <  / h1 >
+             < h2 > How to Play <  / h2 >
+             < p > Swipe left or right to move. < br > Swipe up to jump over traps and collect the right letters. <  / p >
+             < p > Your goal is to spell the target word correctly by collecting the right carrots! <  / p >
+             < button id = "startGameBtn" style = "margin-top: 20px; padding: 10px 20px; font-size: 18px; cursor: pointer;" > Start <  / button >
+             <  / div >
 
-  function totalQueuedNotes() {
-    return queue.reduce((sum, item) => sum + parse(item.string).length, 0);
-  }
+             < script >
+            document.getElementById("startGameBtn").addEventListener("click", () => {
+                autoPlayMode = false;
+                document.getElementById("instructionOverlay").style.display = "none";
+                gamePaused = false;
+                // ✅ Create the audio player only after user interaction
+                if (!bunnyPlayer) {
+                    bunnyPlayer = createQueuedChiptunePlayer();
+                }
 
-  function freq(note) {
-    const map = { C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11 };
-    const match = note.match(/^([A-G]#?)(\d)$/);
-    if (!match) return 0;
-    const [, n, o] = match;
-    const midi = (parseInt(o) + 1) * 12 + map[n];
-    return 440 * Math.pow(2, (midi - 69) / 12);
-  }
+                // Resume audio context if needed (iOS Safari fix)
+                if (bunnyPlayer.audioCtx.state === "suspended") {
+                    bunnyPlayer.audioCtx.resume().then(() => {
+                        console.log("✅ Audio resumed");
+                        bunnyPlayer.queue(bunnyTheme_0, 120); // now safe to start
+                    });
+                } else {
+                    bunnyPlayer.queue(bunnyTheme_0, 120);
+                }
+            });
 
-  function playNote(noteObj, time) {
-    if (noteObj.type === 'rest') return;
-    const f = freq(noteObj.note);
-    if (!isFinite(f)) return;
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(f, time);
-    gain.gain.setValueAtTime(0.25, time);
-    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
-    osc.connect(gain).connect(audioCtx.destination);
-    osc.start(time);
-    osc.stop(time + 0.3);
-  }
-
-function schedule() {
-  while (index < melody.length && nextNoteTime < audioCtx.currentTime + 0.1) {
-    const note = melody[index];
-    playNote(note, nextNoteTime);
-    nextNoteTime += beatTime * (note.duration / 4);
-    index++;
-  }
-
-  if (_isPlaying) {
-    if (index < melody.length) {
-      scheduler = requestAnimationFrame(schedule);
-    } else if (loop) {
-      melody = melody.concat(originalMelody);
-      scheduler = requestAnimationFrame(schedule);
-    } else if (queue.length > 0) {
-      const next = queue.shift();
-      startMelody(next.string, next.bpm, next.loop);
-    } else {
-      _isPlaying = false; // ✅ Melody and queue both finished
-    }
-  }
-}
-
-  function startMelody(melodyString, bpm, shouldLoop) {
-    originalMelody = parse(melodyString);
-    melody = originalMelody.slice();
-    index = 0;
-    loop = shouldLoop;
-    beatTime = 60 / bpm;
-    nextNoteTime = audioCtx.currentTime;
-    scheduler = requestAnimationFrame(schedule);
-  }
-
-  return {
-    audioCtx, // ✅ expose audio context so we can call resume() from outside
-    /**
-     * Queues a melody to be played after the current one.
-     * Does nothing if it would exceed 20 notes total in the queue.
-     */
-    queue: (melodyString, bpm = defaultBpm, shouldLoop = false) => {
-      const parsed = parse(melodyString);
-	  console.log("Current melody queue length:", queue.length);
-      queue.push({ string: melodyString, bpm, loop: shouldLoop });
-
-      if (!_isPlaying ) {
-        _isPlaying = true;
-        const next = queue.shift();
-		console.log("Start melody queue length:", queue.length);
-        startMelody(next.string, next.bpm, next.loop);
-      }
-    },
-    stop: () => {
-      _isPlaying = false;
-      cancelAnimationFrame(scheduler);
-      queue.length = 0;
-    },
-	 getQueueLength: () => melody.length,
-    isPlaying: () => _isPlaying,
-	interruptAndPlay: (melodyString, bpm = defaultBpm, shouldLoop = false) => {
-  queue.length = 0;            // Clear any queued melodies
-  cancelAnimationFrame(scheduler); // Stop current scheduler loop
-  _isPlaying = true;            // Flag as actively playing
-  startMelody(melodyString, bpm, shouldLoop); // Start new melody immediately
-}
-  };
-}
-
-
-
-
-    
-</script>
-<div id="gameOverOverlay" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);color:white;font-family:Garamond,serif;z-index:25;align-items:center;justify-content:center;flex-direction:column;text-align:center;">
-  <h2>Game Over</h2>
-  <p>Your final score: <span id="finalScore">0</span></p>
-  <button onclick="location.reload()" style="padding:10px 20px; font-size:18px; cursor:pointer;">Play Again</button>
-</div>
-<div id="instructionOverlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); color: white; font-family: Garamond, serif; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; text-align: center; padding: 20px;">
-  <h1 style="color: #fff1e6; font-size: 36px; margin-bottom: 20px;">Spellbound <span style="color: #88b37f;">Bunny</span></h1>
-  <h2>How to Play</h2>
-  <p>Swipe left or right to move.<br>Swipe up to jump over traps and collect the right letters.</p>
-  <p>Your goal is to spell the target word correctly by collecting the right carrots!</p>
-  <button id="startGameBtn" style="margin-top: 20px; padding: 10px 20px; font-size: 18px; cursor: pointer;">Start</button>
-</div>
-
-<script>
-  document.getElementById("startGameBtn").addEventListener("click", () => {
-    autoPlayMode = false;
-    document.getElementById("instructionOverlay").style.display = "none";
-    gamePaused = false;
-	// ✅ Create the audio player only after user interaction
-  if (!bunnyPlayer) {
-    bunnyPlayer = createQueuedChiptunePlayer();
-  }
-	
-    // Resume audio context if needed (iOS Safari fix)
-if (bunnyPlayer.audioCtx.state === "suspended") {
-  bunnyPlayer.audioCtx.resume().then(() => {
-    console.log("✅ Audio resumed");
-    bunnyPlayer.queue(bunnyTheme_0, 120); // now safe to start
-  });
-} else {
-  bunnyPlayer.queue(bunnyTheme_0, 120);
-}
-  });
-  
-  window.addEventListener("load", () => {
-    gamePaused = true;
-  });
-</script>
-</html>
+        window.addEventListener("load", () => {
+            gamePaused = true;
+        });
+         <  / script >
+        <  / html >
