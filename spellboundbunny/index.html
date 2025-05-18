@@ -9,7 +9,6 @@
       margin: 0;
       overflow: hidden;
       background: #222;
-	    touch-action: none;
     }
     canvas {
       display: block;
@@ -824,6 +823,7 @@ function schedule() {
   }
 
   return {
+    audioCtx, // ✅ expose audio context so we can call resume() from outside
     /**
      * Queues a melody to be played after the current one.
      * Does nothing if it would exceed 20 notes total in the queue.
@@ -879,8 +879,17 @@ function schedule() {
     autoPlayMode = false;
     document.getElementById("instructionOverlay").style.display = "none";
     gamePaused = false;
-    bunnyPlayer.queue(bunnyTheme_0, 120); // will play first
+    // Resume audio context if needed (iOS Safari fix)
+if (bunnyPlayer.audioCtx.state === "suspended") {
+  bunnyPlayer.audioCtx.resume().then(() => {
+    console.log("✅ Audio resumed");
+    bunnyPlayer.queue(bunnyTheme_0, 120); // now safe to start
   });
+} else {
+  bunnyPlayer.queue(bunnyTheme_0, 120);
+}
+  });
+  
   window.addEventListener("load", () => {
     gamePaused = true;
   });
