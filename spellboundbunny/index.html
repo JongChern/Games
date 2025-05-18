@@ -37,7 +37,7 @@
 </div>
 
   <script>
-  const GAME_VERSION = "v1.0.3"; // 🔁 Update this as needed
+  const GAME_VERSION = "v1.0.4"; // 🔁 Update this as needed
   const showTrees = true;
   const BASE_JUMP_DURATION = 26; // Tweak this for feel
   const canvas = document.getElementById("gameCanvas");
@@ -235,7 +235,8 @@ async function preloadWord(length) {
     document.addEventListener("keydown", (e) => {
   if (e.key === "ArrowUp" && !isJumping) {
     isJumping = true;
-    jumpDuration = Math.floor(BASE_JUMP_DURATION * (window.innerHeight / 800) * (BASE_SPEED / currentSpeed));
+    const screenFactor = Math.min(canvas.height / 800, 1.5); // cap exaggeration
+jumpDuration = Math.floor(BASE_JUMP_DURATION * screenFactor * (BASE_SPEED / currentSpeed));
 
 	jumpFrame = jumpDuration;
   }
