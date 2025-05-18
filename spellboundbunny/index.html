@@ -610,8 +610,9 @@ if (scrollSinceLastSpawn >= SPAWN_EVERY_PX && !gameOver && !gamePaused && !autoP
 ctx.globalAlpha = 1; // no transparency
 ctx.fillStyle = (pop.text === "-1") ? "red" : "black"; // strong red for -1, black otherwise
 
-  // Use fixed font size for final letter (no pulse)
-  const fontSize = pop.isFinalLetter ? 16 : 16;
+  // Make +1 and -1 25% larger
+  const baseSize = 16;
+  const fontSize = (pop.text === "+1" || pop.text === "-1") ? baseSize * 1.50 : baseSize;
   ctx.font = `${fontSize}px Garamond`;
 
   ctx.fillText(pop.text, pop.x, pop.y);
