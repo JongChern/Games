@@ -487,7 +487,32 @@ if (scrollSinceLastSpawn >= SPAWN_EVERY_PX && !gameOver && !gamePaused && !autoP
           letter.x === lanes[playerLane]) {
           const expected = targetWord[collectedLetters.length];
           if (letter.letter === expected) {
-           
+		  const isCompletingWord = collectedLetters.length + 1 === targetWord.length;
+		  if (!isCompletingWord){
+  score += 1;
+
+  // Always push +1 above bunny head, but mark whether it's part of final word
+  scorePops.push({
+    x: lanes[playerLane] - 10,
+    y: playerY - 20,
+    text: "+1",
+    alpha: 1,
+    frame: 0,
+    color: "black",
+    isFinalLetter: isCompletingWord  // <- flag it
+  });
+  } else {
+    scorePops.push({
+    x: lanes[playerLane] - 10,
+    y: playerY - 20,
+    text: "X2",
+    alpha: 1,
+    frame: 0,
+    color: "black",
+    isFinalLetter: isCompletingWord  // <- flag it
+  });
+  }
+
 
 			if (!bunnyPlayer.isPlaying()) {
 				console.log("Alpahbet play");
@@ -511,8 +536,9 @@ if (scrollSinceLastSpawn >= SPAWN_EVERY_PX && !gameOver && !gamePaused && !autoP
           speechSynthesis.speak(sayLetter);
               }
           } else {
-            collectedLetters = [];
-            score = Math.max(0, score - 1);
+             collectedLetters = [];
+  score = Math.max(0, score - 1);
+  scorePops.push({ x: lanes[playerLane] - 10, y: playerY - 20, text: "-1", alpha: 1, frame: 0 });
           }
           letters.splice(i, 1);
         }
@@ -537,14 +563,22 @@ if (scrollSinceLastSpawn >= SPAWN_EVERY_PX && !gameOver && !gamePaused && !autoP
 		ctx.fillText("🥕 " + score, 16, 28);
 		ctx.shadowBlur = 0;
       if (scorePulseFrame > 0) scorePulseFrame--;
+	  
       scorePops.forEach((pop, i) => {
-        ctx.globalAlpha = pop.alpha;
-        ctx.fillText(pop.text, pop.x, pop.y);
-        ctx.globalAlpha = 1;
-        pop.y -= 1;
-        pop.alpha -= 0.03;
-        if (pop.alpha <= 0) scorePops.splice(i, 1);
-      });
+  ctx.globalAlpha = pop.alpha;
+  ctx.fillStyle = pop.color || "black";
+
+  // Use fixed font size for final letter (no pulse)
+  const fontSize = pop.isFinalLetter ? 16 : 16;
+  ctx.font = `${fontSize}px Garamond`;
+
+  ctx.fillText(pop.text, pop.x, pop.y);
+  ctx.globalAlpha = 1;
+
+  pop.y -= 1;
+  pop.alpha -= 0.03;
+  if (pop.alpha <= 0) scorePops.splice(i, 1);
+});
 
       if (collectedLetters.join("") === targetWord) {
         bunnyPlayer.interruptAndPlay(bunnyTheme_2, 120);
@@ -553,9 +587,8 @@ if (scrollSinceLastSpawn >= SPAWN_EVERY_PX && !gameOver && !gamePaused && !autoP
         utterance.lang = "en-GB";
         speechSynthesis.speak(utterance);
           }
-        scorePops.push({ x: 10, y: 30, text: "+1", alpha: 1, frame: 0 });
-        score += 1;
-        scorePulseFrame = SCORE_PULSE_DURATION;
+		score = score * 2;
+		scorePulseFrame = SCORE_PULSE_DURATION;
         collectedLetters = [];
         currentSpeed = Math.min(currentSpeed + BASE_SPEED * SPEED_INCREMENT, BASE_SPEED * MAX_SPEED_MULTIPLIER);
 
