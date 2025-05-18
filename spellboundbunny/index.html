@@ -515,7 +515,16 @@ if (scrollSinceLastSpawn >= SPAWN_EVERY_PX && !gameOver && !gamePaused && !autoP
       ctx.font = `${pulseSize}px Garamond`;
       const scoreText = "Score: " + score;
       const textWidth = ctx.measureText(scoreText).width;
-      ctx.fillText(scoreText, 10, 20);
+      // Background
+		ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+		ctx.fillRect(8, 8, textWidth + 24, 28);
+
+		// Text
+		ctx.shadowColor = "#000";
+		ctx.shadowBlur = 4;
+		ctx.fillStyle = "white";
+		ctx.fillText("🥕 " + score, 16, 28);
+		ctx.shadowBlur = 0;
       if (scorePulseFrame > 0) scorePulseFrame--;
       scorePops.forEach((pop, i) => {
         ctx.globalAlpha = pop.alpha;
