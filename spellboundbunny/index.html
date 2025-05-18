@@ -471,16 +471,16 @@ if (scrollSinceLastSpawn >= SPAWN_EVERY_PX && !gameOver && !gamePaused && !autoP
       ctx.fillStyle = '#88b37f';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      for (let y = bgY % 100 - 100; y < canvas.height; y += 100) {
+      for (let y = Math.round(bgY % 100) - 100; y < canvas.height; y += 100) {
         const sidePadding = canvas.width * 0.05; // 5% in from each side
 		const sidePositions = [sidePadding, canvas.width - sidePadding];
         sidePositions.forEach(x => {
           ctx.fillStyle = '#5a3e1b';
-          ctx.fillRect(x, y + 40, 10, 40);
+          ctx.fillRect(Math.round(x), Math.round(y + 40), 10, 40);
 
           ctx.beginPath();
           ctx.fillStyle = '#2f6b2f';
-          ctx.arc(x + 5, y + 30, 20, 0, Math.PI * 2);
+          ctx.arc(Math.round(x + 5), Math.round(y + 30), 20, 0, Math.PI * 2);
           ctx.fill();
         });
       }
