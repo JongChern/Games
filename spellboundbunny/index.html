@@ -337,9 +337,20 @@ canvas.addEventListener("touchend", (e) => {
       ctx.closePath();
       ctx.fill();
 
-      ctx.fillStyle = "black";
-      ctx.font = "20px Garamond";
-      ctx.fillText(letterObj.letter, x - 6, y + 36);
+      ctx.font = "22px Garamond";
+		ctx.fillStyle = "black";
+
+		// Measure the letter
+		const metrics = ctx.measureText(letterObj.letter);
+		const letterWidth = metrics.width;
+		const ascent = metrics.actualBoundingBoxAscent || 16; // fallback for older browsers
+
+		// Centered coordinates
+		const centerX = letterObj.x - (letterWidth / 2);
+		const centerY = letterObj.y + 48 - (48 - ascent) / 2;
+
+		// Draw the text
+		ctx.fillText(letterObj.letter, centerX, centerY);
     }
 
     function drawTargetWord() {
