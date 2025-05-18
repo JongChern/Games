@@ -194,16 +194,17 @@ async function preloadWord(length) {
 
 canvas.addEventListener("touchend", (e) => {
   if (touchStartX === null || touchStartY === null) return;
+
   const touchEndX = e.changedTouches[0].clientX;
   const touchEndY = e.changedTouches[0].clientY;
   const diffX = touchEndX - touchStartX;
-  const diffY = touchStartY - touchEndY;
+  const diffY = touchStartY - touchEndY; // upward swipe = positive
 
-  if (Math.abs(diffY) > 30 && diffY > 0 && !isJumping) {
-    isJumping = true;
-    jumpDuration = Math.floor(20 * BASE_SPEED / currentSpeed);
-  jumpFrame = jumpDuration;
-  } else if (Math.abs(diffX) > 30) {
+  const absX = Math.abs(diffX);
+  const absY = Math.abs(diffY);
+
+  // Prioritize horizontal swipes
+  if (absX > absY && absX > 30) {
     if (diffX > 0 && playerLane < 2) {
       playerLane++;
       hopFrame = 10;
@@ -211,10 +212,16 @@ canvas.addEventListener("touchend", (e) => {
       playerLane--;
       hopFrame = 10;
     }
+  } else if (diffY > 50 && !isJumping) {
+    // Only jump if swipe is clearly vertical and strong
+    isJumping = true;
+    jumpDuration = Math.floor(20 * BASE_SPEED / currentSpeed);
+    jumpFrame = jumpDuration;
   }
+
   touchStartX = null;
   touchStartY = null;
-    });
+});
 
     function drawPlayer() {
   const jumpOffset = isJumping ? -Math.sin((jumpDuration - jumpFrame) / jumpDuration * Math.PI) * JUMP_HEIGHT : 0;
