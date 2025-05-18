@@ -470,7 +470,7 @@ if (scrollSinceLastSpawn >= SPAWN_EVERY_PX && !gameOver && !gamePaused && !autoP
           if (letter.letter === expected) {
            
 
-			if (bunnyPlayer.getQueueLength()==0) {
+			if (!bunnyPlayer.isPlaying()) {
 				console.log("Alpahbet play");
 				bunnyPlayer.interruptAndPlay(bunnyTheme_0, 120);
 				} else {
@@ -644,7 +644,7 @@ function createQueuedChiptunePlayer(defaultBpm = 120) {
   let melody = [];
   let originalMelody = [];
   let index = 0;
-  let isPlaying = false;
+  let _isPlaying = false;
   let nextNoteTime = 0;
   let loop = false;
   let scheduler;
@@ -686,26 +686,28 @@ function createQueuedChiptunePlayer(defaultBpm = 120) {
     osc.stop(time + 0.3);
   }
 
-  function schedule() {
-    while (index < melody.length && nextNoteTime < audioCtx.currentTime + 0.1) {
-      const note = melody[index];
-      playNote(note, nextNoteTime);
-      nextNoteTime += beatTime * (note.duration / 4);
-      index++;
-    }
+function schedule() {
+  while (index < melody.length && nextNoteTime < audioCtx.currentTime + 0.1) {
+    const note = melody[index];
+    playNote(note, nextNoteTime);
+    nextNoteTime += beatTime * (note.duration / 4);
+    index++;
+  }
 
-    if (isPlaying) {
-      if (index < melody.length) {
-        scheduler = requestAnimationFrame(schedule);
-      } else if (loop) {
-        melody = melody.concat(originalMelody);
-        scheduler = requestAnimationFrame(schedule);
-      } else if (queue.length > 0) {
-        const next = queue.shift();
-        startMelody(next.string, next.bpm, next.loop);
-      }
+  if (_isPlaying) {
+    if (index < melody.length) {
+      scheduler = requestAnimationFrame(schedule);
+    } else if (loop) {
+      melody = melody.concat(originalMelody);
+      scheduler = requestAnimationFrame(schedule);
+    } else if (queue.length > 0) {
+      const next = queue.shift();
+      startMelody(next.string, next.bpm, next.loop);
+    } else {
+      _isPlaying = false; // ✅ Melody and queue both finished
     }
   }
+}
 
   function startMelody(melodyString, bpm, shouldLoop) {
     originalMelody = parse(melodyString);
@@ -727,24 +729,24 @@ function createQueuedChiptunePlayer(defaultBpm = 120) {
 	  console.log("Current melody queue length:", queue.length);
       queue.push({ string: melodyString, bpm, loop: shouldLoop });
 
-      if (!isPlaying ) {
-        isPlaying = true;
+      if (!_isPlaying ) {
+        _isPlaying = true;
         const next = queue.shift();
 		console.log("Start melody queue length:", queue.length);
         startMelody(next.string, next.bpm, next.loop);
       }
     },
     stop: () => {
-      isPlaying = false;
+      _isPlaying = false;
       cancelAnimationFrame(scheduler);
       queue.length = 0;
     },
 	 getQueueLength: () => melody.length,
-    isPlaying: () => isPlaying,
+    isPlaying: () => _isPlaying,
 	interruptAndPlay: (melodyString, bpm = defaultBpm, shouldLoop = false) => {
   queue.length = 0;            // Clear any queued melodies
   cancelAnimationFrame(scheduler); // Stop current scheduler loop
-  isPlaying = true;            // Flag as actively playing
+  _isPlaying = true;            // Flag as actively playing
   startMelody(melodyString, bpm, shouldLoop); // Start new melody immediately
 }
   };
