@@ -32,9 +32,12 @@
   <label for="missingLettersSlider">Missing Letters:</label><br>
   <input type="range" id="missingLettersSlider" min="0" max="3" step="1" value="0">
   <span id="missingLettersValue">0</span>
+  <hr style="margin: 10px 0;">
+  <div style="font-size: 14px; color: #aaa;">Version: <span id="versionLabel">...</span></div>
 </div>
 
   <script>
+  const GAME_VERSION = "v1.0.3"; // 🔁 Update this as needed
   const showTrees = true;
   const BASE_JUMP_DURATION = 26; // Tweak this for feel
   const canvas = document.getElementById("gameCanvas");
@@ -933,5 +936,7 @@ if (bunnyPlayer.audioCtx.state === "suspended") {
   window.addEventListener("load", () => {
     gamePaused = true;
   });
+  
+  document.getElementById("versionLabel").textContent = GAME_VERSION;
 </script>
 </html>
