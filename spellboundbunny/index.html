@@ -9,16 +9,18 @@
       margin: 0;
       overflow: hidden;
       background: #222;
+	    touch-action: none;
     }
     canvas {
       display: block;
       background: linear-gradient(to top, #333, #666);
       touch-action: none;
     }
+	
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="400" height="600"></canvas>
+  <canvas id="gameCanvas"></canvas>
   <button id="settingsToggle" style="position: absolute; top: 10px; right: 10px; z-index: 10;">⚙️ Settings</button>
 <div id="settingsPanel" style="display: none; position: absolute; top: 50px; right: 10px; background: #333; color: white; padding: 10px; border: 1px solid #555; border-radius: 4px; z-index: 10;">
   <label for="speedSlider">Game Speed:</label><br>
@@ -34,16 +36,35 @@
 </div>
 
   <script>
+const BASE_JUMP_DURATION = 28; // Tweak this for feel
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
+	  let JUMP_HEIGHT = canvas.height * 0.1;
+	  let playerSize = canvas.height * 0.07;
+let SPAWN_EVERY_PX = 180; // will be recalculated
+	function resizeCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = window.innerWidth * dpr;
+  canvas.height = window.innerHeight * dpr;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); // reset transform
+  ctx.scale(dpr, dpr);
+}
+
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas(); // Call once initially
+	
+	
     let bgY = 0;
 let scrollSinceLastSpawn = 0;
-const SPAWN_EVERY_PX = 180; // tweak as needed
 
-    const lanes = [100, 200, 300];
+
+    
     let playerLane = 1;
-    const playerY = 500;
-    const playerSize = 40;
+const laneCount = 3;
+const lanes = Array.from({ length: laneCount }, (_, i) =>
+  ((i + 1) * canvas.width) / (laneCount + 1)
+);
+const playerY = canvas.height * 0.8;
 
     let obstacles = [];
     let letters = [];
@@ -76,7 +97,8 @@ let touchStartY = null;
     let walkFrame = 0;
 let isJumping = false;
 let landingFrame = 0;
-const JUMP_HEIGHT = 114;
+
+
 let jumpFrame = 0;
 let jumpLandOffset = 0;
 
@@ -146,6 +168,18 @@ const bunnyPlayer = createQueuedChiptunePlayer();
   "LINES", "SLOPE", "TILES", "FLOOR", "WALLS", "DOORS", "CLOSE", "OPENS", "LOCKS", "TURNS"
 ];
 
+document.body.addEventListener("touchmove", (e) => {
+  e.preventDefault();
+}, { passive: false });
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  JUMP_HEIGHT = canvas.height * 0.13;
+  playerSize = canvas.height * 0.07;
+    SPAWN_EVERY_PX = Math.max(100, canvas.height * 0.3); // Minimum 100px, or 20% of height
+}
+
 async function preloadWord(length) {
   try {
     const hardMode = document.getElementById("hardMode")?.checked;
@@ -172,7 +206,7 @@ async function preloadWord(length) {
     document.addEventListener("keydown", (e) => {
   if (e.key === "ArrowUp" && !isJumping) {
     isJumping = true;
-    jumpDuration = Math.floor(20 * BASE_SPEED / currentSpeed); // dynamic duration
+    jumpDuration = Math.floor(BASE_JUMP_DURATION * (canvas.height / 800) * (BASE_SPEED / currentSpeed));
 	jumpFrame = jumpDuration;
   }
       const activeEl = document.activeElement;
@@ -215,7 +249,7 @@ canvas.addEventListener("touchend", (e) => {
   } else if (diffY > 50 && !isJumping) {
     // Only jump if swipe is clearly vertical and strong
     isJumping = true;
-    jumpDuration = Math.floor(20 * BASE_SPEED / currentSpeed);
+    jumpDuration = Math.floor(BASE_JUMP_DURATION * (canvas.height / 800) * (BASE_SPEED / currentSpeed));
     jumpFrame = jumpDuration;
   }
 
@@ -439,7 +473,8 @@ if (scrollSinceLastSpawn >= SPAWN_EVERY_PX && !gameOver && !gamePaused && !autoP
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       for (let y = bgY % 100 - 100; y < canvas.height; y += 100) {
-        const sidePositions = [20, 360];
+        const sidePadding = canvas.width * 0.05; // 5% in from each side
+		const sidePositions = [sidePadding, canvas.width - sidePadding];
         sidePositions.forEach(x => {
           ctx.fillStyle = '#5a3e1b';
           ctx.fillRect(x, y + 40, 10, 40);
