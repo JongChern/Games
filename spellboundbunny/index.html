@@ -36,7 +36,7 @@
 </div>
 
   <script>
-const BASE_JUMP_DURATION = 28; // Tweak this for feel
+const BASE_JUMP_DURATION = 26; // Tweak this for feel
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
 	  let JUMP_HEIGHT = canvas.height * 0.1;
@@ -177,7 +177,7 @@ function resizeCanvas() {
   canvas.height = window.innerHeight;
   JUMP_HEIGHT = canvas.height * 0.13;
   playerSize = canvas.height * 0.07;
-    SPAWN_EVERY_PX = Math.max(100, canvas.height * 0.3); // Minimum 100px, or 20% of height
+    SPAWN_EVERY_PX = Math.max(100, canvas.height * 0.4); // Minimum 100px, or 20% of height
 }
 
 async function preloadWord(length) {
