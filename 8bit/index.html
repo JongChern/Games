@@ -210,6 +210,8 @@ let beatTime = 0;
     let isPlaying = false;
     let sequenceIndex = 0;
     let step = 0;
+let masterPercQueue = JSON.parse(localStorage.getItem('masterPercQueue')) || [];
+let masterChipQueue = JSON.parse(localStorage.getItem('masterChipQueue')) || [];
 
     document.addEventListener('dragover', e => e.preventDefault());
     document.addEventListener('drop', e => {
@@ -240,6 +242,8 @@ document.getElementById("sequenceQueue").addEventListener("drop", e => {
       localStorage.setItem('variations', JSON.stringify(variations));
       renderVariationOptions();
       renderAllGrids();
+	  renderMasterLists(); // Ensure Master tab picks up new variations
+
     }
 
     function changeVariation(index) {
@@ -368,10 +372,10 @@ function startVariationPlayback() {
       isPlaying = false;
     }
 
-    function playStepAt(pattern, time) {
-  if (pattern.kick[step]) playKick(time);
-  if (pattern.snare[step]) playSnare(time);
-  if (pattern.hat[step]) playHat(time);
+function playStepAt(pattern, time, stepIndex = step) {
+  if (pattern.kick[stepIndex]) playKick(time);
+  if (pattern.snare[stepIndex]) playSnare(time);
+  if (pattern.hat[stepIndex]) playHat(time);
 }
 
 function startSequencePlayback() {
@@ -587,6 +591,8 @@ function addChiptuneVariation() {
   localStorage.setItem('chiptuneVariations', JSON.stringify(chiptuneVariations));
   renderChiptuneVariationOptions();
   document.getElementById('chiptuneInput').value = chiptuneVariations[currentChiptuneVariation];
+  renderMasterLists(); // Ensure Master tab picks up new variations
+
 }
 
 function changeChiptuneVariation(index) {
@@ -687,13 +693,13 @@ function startChiptuneSequence() {
   playNext();
 } 
 
-function queueChiptune(melodyString, bpm = tempo, loop = true) {
+function queueChiptune(melodyString, bpm = tempo, loop = true, startTime = audioCtx.currentTime) {
   stopChiptune();
   originalChiptuneNotes = parseChiptuneInput(melodyString);
   chiptuneNotes = originalChiptuneNotes.slice();
   chiptuneIndex = 0;
   isChiptunePlaying = true;
-  nextChiptuneTime = audioCtx.currentTime;
+  nextChiptuneTime = startTime; // ← USE startTime here
   beatTime = 60 / bpm;
 
   function schedule() {
@@ -759,8 +765,6 @@ function renderMasterLists() {
     chipList.appendChild(btn);
   });
 }
-let masterPercQueue = [];
-let masterChipQueue = [];
 
 ["masterPercQueue", "masterChipQueue"].forEach(id => {
   document.getElementById(id).addEventListener("drop", e => {
@@ -779,22 +783,28 @@ function updateMasterQueues() {
   const chip = document.getElementById("masterChipQueue");
   perc.innerHTML = '';
   chip.innerHTML = '';
+
   masterPercQueue.forEach(i => {
     const div = document.createElement("div");
     div.className = 'variation-btn';
     div.textContent = `Perc ${i + 1}`;
     perc.appendChild(div);
   });
+
   masterChipQueue.forEach(i => {
     const div = document.createElement("div");
     div.className = 'variation-btn';
     div.textContent = `Chip ${i + 1}`;
     chip.appendChild(div);
   });
+
+  // Save to localStorage
+  localStorage.setItem('masterPercQueue', JSON.stringify(masterPercQueue));
+  localStorage.setItem('masterChipQueue', JSON.stringify(masterChipQueue));
 }
 function startMasterSequence() {
   if (!masterPercQueue.length && !masterChipQueue.length) return;
-  let pIdx = 0, cIdx = 0, step = 0;
+  let pIdx = 0, cIdx = 0, stepInBar = 0;
   let nextNoteTime = audioCtx.currentTime;
   const scheduleAhead = 0.1;
   const beatTime = 60 / tempo / 2;
@@ -803,22 +813,20 @@ function startMasterSequence() {
 
   function scheduler() {
     while (nextNoteTime < audioCtx.currentTime + scheduleAhead) {
-      // Safely get current percussion variation
       const pVar = variations[masterPercQueue[pIdx % masterPercQueue.length]];
       if (pVar) {
-        playStepAt(pVar, nextNoteTime);
+        playStepAt(pVar, nextNoteTime, stepInBar); // ← pass stepInBar explicitly
       }
 
-      // If at start of bar, trigger chiptune variation
-      if (step === 0 && masterChipQueue.length > 0) {
+      if (stepInBar === 0 && masterChipQueue.length > 0) {
         const chipVar = chiptuneVariations[masterChipQueue[cIdx % masterChipQueue.length]];
-        if (chipVar) queueChiptune(chipVar, tempo, false);
+        if (chipVar) queueChiptune(chipVar, tempo, false, nextNoteTime);
         cIdx++;
       }
 
-      step++;
-      if (step >= stepsPerBar) {
-        step = 0;
+      stepInBar++;
+      if (stepInBar >= stepsPerBar) {
+        stepInBar = 0;
         pIdx++;
       }
 
@@ -830,6 +838,7 @@ function startMasterSequence() {
 
   scheduler();
 }
+
 
 
 function stopMasterSequence() {
