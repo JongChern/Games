@@ -86,12 +86,49 @@
   padding: 10px;
   min-height: 40px;
 }
+#masterPercQueue, #masterChipQueue {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 10px 0;
+  padding: 10px;
+  min-height: 50px;
+  border: 2px dashed #0f0;
+  background-color: #222;
+}
   </style>
 </head>
 <div>
+	<button onclick="showTab('master')">Master</button>
   <button onclick="showTab('percussion')">Percussion</button>
   <button onclick="showTab('chiptune')">Chiptune</button>
 </div>
+<div id="masterTab" style="display:none;">
+  <h1>Master Sequencer</h1>
+
+  <div style="display: flex; justify-content: space-around; flex-wrap: wrap;">
+    <div>
+      <h3>Percussion Variations</h3>
+      <div id="masterPercussionList"></div>
+    </div>
+    <div>
+      <h3>Chiptune Variations</h3>
+      <div id="masterChiptuneList"></div>
+    </div>
+  </div>
+
+  <h4>Percussion Sequence Queue</h4>
+  <div id="masterPercQueue" ondragover="event.preventDefault()"></div>
+
+  <h4>Chiptune Sequence Queue</h4>
+  <div id="masterChipQueue" ondragover="event.preventDefault()"></div>
+
+  <button onclick="startMasterSequence()">Play Master Sequence</button>
+  <button onclick="stopMasterSequence()">Stop Master Sequence</button>
+  <button onclick="clearMasterQueues()">Clear Master Queue</button>
+</div>
+
+
 <div id="percussionTab"><h1>Lo-fi Drum Machine (No Samples)</h1>
   <label for="variationSelect">Variation:</label>
   <select id="variationSelect" onchange="changeVariation(this.value)"></select>
@@ -685,8 +722,9 @@ document.getElementById("chiptuneInput").addEventListener("input", () => {
   }
 });
 function showTab(tab) {
-  document.getElementById('percussionTab').style.display = tab === 'percussion' ? '' : 'none';
-  document.getElementById('chiptuneTab').style.display = tab === 'chiptune' ? '' : 'none';
+  ['percussionTab', 'chiptuneTab', 'masterTab'].forEach(id => {
+    document.getElementById(id).style.display = id === tab + 'Tab' ? '' : 'none';
+  });
 }
 // Initialize chiptune variation/queue UI
 if (chiptuneVariations.length > 0) {
@@ -696,6 +734,118 @@ if (chiptuneVariations.length > 0) {
 if (chiptuneVariations.length === 0) {
   addChiptuneVariation();
 }
+
+function renderMasterLists() {
+  const perList = document.getElementById("masterPercussionList");
+  const chipList = document.getElementById("masterChiptuneList");
+  perList.innerHTML = '';
+  chipList.innerHTML = '';
+
+  variations.forEach((_, i) => {
+    const btn = document.createElement("div");
+    btn.className = 'variation-btn';
+    btn.textContent = `Perc ${i + 1}`;
+    btn.draggable = true;
+    btn.ondragstart = e => e.dataTransfer.setData("text/plain", `masterPerc:${i}`);
+    perList.appendChild(btn);
+  });
+
+  chiptuneVariations.forEach((_, i) => {
+    const btn = document.createElement("div");
+    btn.className = 'variation-btn';
+    btn.textContent = `Chip ${i + 1}`;
+    btn.draggable = true;
+    btn.ondragstart = e => e.dataTransfer.setData("text/plain", `masterChip:${i}`);
+    chipList.appendChild(btn);
+  });
+}
+let masterPercQueue = [];
+let masterChipQueue = [];
+
+["masterPercQueue", "masterChipQueue"].forEach(id => {
+  document.getElementById(id).addEventListener("drop", e => {
+    const data = e.dataTransfer.getData("text/plain");
+    if (data.startsWith("masterPerc:")) {
+      masterPercQueue.push(parseInt(data.split(":")[1]));
+    } else if (data.startsWith("masterChip:")) {
+      masterChipQueue.push(parseInt(data.split(":")[1]));
+    }
+    updateMasterQueues();
+  });
+});
+
+function updateMasterQueues() {
+  const perc = document.getElementById("masterPercQueue");
+  const chip = document.getElementById("masterChipQueue");
+  perc.innerHTML = '';
+  chip.innerHTML = '';
+  masterPercQueue.forEach(i => {
+    const div = document.createElement("div");
+    div.className = 'variation-btn';
+    div.textContent = `Perc ${i + 1}`;
+    perc.appendChild(div);
+  });
+  masterChipQueue.forEach(i => {
+    const div = document.createElement("div");
+    div.className = 'variation-btn';
+    div.textContent = `Chip ${i + 1}`;
+    chip.appendChild(div);
+  });
+}
+function startMasterSequence() {
+  if (!masterPercQueue.length && !masterChipQueue.length) return;
+  let pIdx = 0, cIdx = 0, step = 0;
+  let nextNoteTime = audioCtx.currentTime;
+  const scheduleAhead = 0.1;
+  const beatTime = 60 / tempo / 2;
+
+  isPlaying = true;
+
+  function scheduler() {
+    while (nextNoteTime < audioCtx.currentTime + scheduleAhead) {
+      // Safely get current percussion variation
+      const pVar = variations[masterPercQueue[pIdx % masterPercQueue.length]];
+      if (pVar) {
+        playStepAt(pVar, nextNoteTime);
+      }
+
+      // If at start of bar, trigger chiptune variation
+      if (step === 0 && masterChipQueue.length > 0) {
+        const chipVar = chiptuneVariations[masterChipQueue[cIdx % masterChipQueue.length]];
+        if (chipVar) queueChiptune(chipVar, tempo, false);
+        cIdx++;
+      }
+
+      step++;
+      if (step >= stepsPerBar) {
+        step = 0;
+        pIdx++;
+      }
+
+      nextNoteTime += beatTime;
+    }
+
+    if (isPlaying) requestAnimationFrame(scheduler);
+  }
+
+  scheduler();
+}
+
+
+function stopMasterSequence() {
+  isPlaying = false;
+  stopChiptune();
+}
+
+function clearMasterQueues() {
+  masterPercQueue = [];
+  masterChipQueue = [];
+  updateMasterQueues();
+}
+
+renderMasterLists();
+updateMasterQueues();
+
   </script>
 
 </html>

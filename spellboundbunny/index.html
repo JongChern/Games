@@ -37,7 +37,7 @@
 </div>
 
   <script>
-  const GAME_VERSION = "v1.0.8"; // 🔁 Update this as needed
+  const GAME_VERSION = "v1.0.9"; // 🔁 Update this as needed
   const showTrees = true;
   const BASE_JUMP_DURATION = 26; // Tweak this for feel
   const canvas = document.getElementById("gameCanvas");
@@ -382,7 +382,104 @@ canvas.addEventListener("touchend", (e) => {
       }
     }
 */
+function drawFoxObstacle(obs) {
+  const { x, y } = obs;
+  const scale = 0.6;
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+
+  // Body
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-25, 60);
+  ctx.lineTo(25, 60);
+  ctx.closePath();
+  ctx.fillStyle = "#e67e22";
+  ctx.fill();
+
+  // Chest
+  ctx.beginPath();
+  ctx.moveTo(0, 20);
+  ctx.lineTo(-10, 50);
+  ctx.lineTo(10, 50);
+  ctx.closePath();
+  ctx.fillStyle = "#fbeec1";
+  ctx.fill();
+
+  // Head
+  ctx.beginPath();
+  ctx.moveTo(0, -50);
+  ctx.lineTo(-30, -10);
+  ctx.lineTo(30, -10);
+  ctx.closePath();
+  ctx.fillStyle = "#e67e22";
+  ctx.fill();
+
+  // Face mask
+  ctx.beginPath();
+  ctx.moveTo(0, -30);
+  ctx.lineTo(-15, -10);
+  ctx.lineTo(15, -10);
+  ctx.closePath();
+  ctx.fillStyle = "#fbeec1";
+  ctx.fill();
+
+  // Ears
+  ctx.beginPath();
+  ctx.moveTo(-30, -10);
+  ctx.lineTo(-40, -40);
+  ctx.lineTo(-20, -20);
+  ctx.closePath();
+  ctx.fillStyle = "#d35400";
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(30, -10);
+  ctx.lineTo(40, -40);
+  ctx.lineTo(20, -20);
+  ctx.closePath();
+  ctx.fillStyle = "#d35400";
+  ctx.fill();
+
+  // Eyes
+  ctx.beginPath();
+  ctx.arc(-10, -20, 3, 0, Math.PI * 2);
+  ctx.arc(10, -20, 3, 0, Math.PI * 2);
+  ctx.fillStyle = "#000";
+  ctx.fill();
+
+  // Nose
+  ctx.beginPath();
+  ctx.arc(0, -10, 4, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Tail (right)
+  ctx.beginPath();
+  ctx.moveTo(25, 60);
+  ctx.quadraticCurveTo(50, 40, 30, 10);
+  ctx.quadraticCurveTo(45, 40, 25, 60);
+  ctx.fillStyle = "#e67e22";
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(30, 20);
+  ctx.quadraticCurveTo(40, 35, 20, 55);
+  ctx.fillStyle = "#fbeec1";
+  ctx.fill();
+
+  ctx.restore();
+}
+
 function drawObstacle(obs) {
+  if (obs.type === "fox") {
+    drawFoxObstacle(obs);
+  } else {
+    drawSnakeObstacle(obs); // your renamed former drawObstacle
+  }
+}
+function drawSnakeObstacle(obs) {
   const { x, y } = obs;
 
 	// Coils (omit the largest bottom one)
@@ -541,8 +638,9 @@ ctx.stroke();
       if (currentSpeed < BASE_SPEED * MAX_SPEED_MULTIPLIER && redLanes.length >= 2) redLanes.splice(Math.floor(Math.random() * redLanes.length), 1);
 
       redLanes.forEach(lane => {
-        obstacles.push({ x: lanes[lane], y: -50 });
-      });
+  const isFox = Math.random() < 0.5; // 50% chance
+  obstacles.push({ x: lanes[lane], y: -50, type: isFox ? "fox" : "snake" });
+});
 
       if (Math.random() < 0.36 && targetWord && collectedLetters.length < targetWord.length) {
         let letterToShow;
