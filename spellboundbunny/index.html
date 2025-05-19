@@ -37,7 +37,7 @@
 </div>
 
   <script>
-  const GAME_VERSION = "v1.0.6"; // 🔁 Update this as needed
+  const GAME_VERSION = "v1.0.7"; // 🔁 Update this as needed
   const showTrees = true;
   const BASE_JUMP_DURATION = 26; // Tweak this for feel
   const canvas = document.getElementById("gameCanvas");
@@ -359,6 +359,7 @@ canvas.addEventListener("touchend", (e) => {
       }
     }
 
+/*
     function drawObstacle(obs) {
       const { x, y } = obs;
       ctx.fillStyle = "red";
@@ -380,6 +381,77 @@ canvas.addEventListener("touchend", (e) => {
         ctx.stroke();
       }
     }
+*/
+function drawObstacle(obs) {
+  const { x, y } = obs;
+
+	// Coils (omit the largest bottom one)
+	const coilHeights = [0, 10, 20]; // Removed last one (was 30)
+	const coilWidths = [40, 60, 80]; // Removed width 100
+	const bodyColors = ["#a97453", "#c49b66", "#a97453"];
+
+	for (let i = 0; i < coilWidths.length; i++) {
+	  ctx.beginPath();
+	  ctx.ellipse(x, y + coilHeights[i], coilWidths[i] / 2, 14, 0, 0, Math.PI * 2);
+	  ctx.fillStyle = bodyColors[i];
+	  ctx.strokeStyle = "black";
+	  ctx.lineWidth = 1;
+	  ctx.fill();
+	  ctx.stroke();
+	}
+
+// Rattle segments (attached to third coil)
+const baseY = y + 20;
+for (let i = 0; i < 4; i++) {
+  ctx.beginPath();
+  ctx.ellipse(x + 45 + i * 6, baseY, 5, 8, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "#e1c48a";
+  ctx.strokeStyle = "black";
+  ctx.fill();
+  ctx.stroke();
+}
+
+  // ⬇ Smaller Head (scaled down and moved slightly lower)
+  const headY = y-25;
+  const headWidth = 14;
+  const headHeight = 20;
+  ctx.beginPath();
+  ctx.ellipse(x, headY, headWidth, headHeight, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "#5d4037";
+  ctx.strokeStyle = "black";
+  ctx.fill();
+  ctx.stroke();
+
+  // ⬇ Eyes (smaller and repositioned)
+  ctx.beginPath();
+  ctx.ellipse(x - 5, headY - 2, 4, 8, 0, 0, Math.PI * 2);
+  ctx.ellipse(x + 5, headY - 2, 4, 8, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "white";
+  ctx.fill();
+  ctx.strokeStyle = "black";
+  ctx.stroke();
+
+  // ⬇ Pupils
+  ctx.beginPath();
+  ctx.ellipse(x - 5, headY - 2, 1.5, 3, 0, 0, Math.PI * 2);
+  ctx.ellipse(x + 5, headY - 2, 1.5, 3, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "black";
+  ctx.fill();
+
+// Tongue (longer, wider fork, more visible)
+ctx.beginPath();
+ctx.moveTo(x, headY + 8);              // base of tongue
+ctx.lineTo(x - 4, headY + 22);         // left fork
+ctx.lineTo(x, headY + 16);             // center return
+ctx.lineTo(x + 4, headY + 22);         // right fork
+ctx.closePath();
+ctx.fillStyle = "#ff3333";             // brighter red
+ctx.fill();
+ctx.strokeStyle = "black";             // outline for contrast
+ctx.lineWidth = 1;
+ctx.stroke();
+}
+
 
     function drawLetter(letterObj) {
       const x = letterObj.x;

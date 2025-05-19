@@ -77,10 +77,22 @@
       margin-left: auto;
       margin-right: auto;
     }
+	#chiptuneSequenceQueue {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 10px;
+  border: 1px solid #0f0;
+  padding: 10px;
+  min-height: 40px;
+}
   </style>
 </head>
-<body>
-  <h1>Lo-fi Drum Machine (No Samples)</h1>
+<div>
+  <button onclick="showTab('percussion')">Percussion</button>
+  <button onclick="showTab('chiptune')">Chiptune</button>
+</div>
+<div id="percussionTab"><h1>Lo-fi Drum Machine (No Samples)</h1>
   <label for="variationSelect">Variation:</label>
   <select id="variationSelect" onchange="changeVariation(this.value)"></select>
   <button onclick="addVariation()">+ Add Variation</button>
@@ -115,18 +127,39 @@
     <div class="step-grid" id="hatGrid"></div>
   </div>
 
-  <pre id="outputJS"></pre>
-<label for="waveformToggle">Waveform:</label>
-<select id="waveformToggle">
-  <option value="square">Square (classic)</option>
-  <option value="triangle" selected>Triangle (whimsical)</option>
-</select>
-<textarea id="chiptuneInput" rows="4" cols="60">C5:2 E5:2 G5:2 R:2 G5:2 A5:4
+  </div>
+<div id="chiptuneTab" style="display:none;">
+  <h1>Chiptune Sequencer</h1>
+  <label for="chiptuneVariationSelect">Variation:</label>
+  <select id="chiptuneVariationSelect" onchange="changeChiptuneVariation(this.value)"></select>
+  <button onclick="addChiptuneVariation()">+ Add Variation</button>
+  <button onclick="playChiptuneVariation()">Play Variation</button>
+  <button onclick="stopChiptune()">Stop Variation</button>
+
+  <h3>Drag Variations Below to Create Chiptune Playback Sequence</h3>
+  <div id="chiptuneVariationList"></div>
+
+  <h4>Chiptune Playback Queue (drag to reorder or remove)</h4>
+  <div id="chiptuneSequenceQueue" ondragover="event.preventDefault()"></div>
+  <button onclick="startChiptuneSequence()">Play Chiptune Sequence</button>
+  <button onclick="stopChiptune()">Stop Sequence</button>
+  <button onclick="clearChiptuneQueue()">Clear Queue</button>
+
+  <label for="waveformToggle">Waveform:</label>
+  <select id="waveformToggle">
+    <option value="square">Square (classic)</option>
+    <option value="triangle" selected>Triangle (whimsical)</option>
+  </select>
+
+  <textarea id="chiptuneInput" rows="4" cols="60">C5:2 E5:2 G5:2 R:2 G5:2 A5:4
 F5:2 D5:2 C5:4 R:2 C5:2 G5:4
 E5:2 R:2 E5:2 G5:2 A5:4 R:4
 C6:2 B5:2 A5:2 G5:2 R:4</textarea><br>
-<button onclick="playChiptune()">Play Chiptune</button>
-<label><input type="checkbox" id="loopChiptune"> Loop</label>
+
+  <button onclick="playChiptune()">Play Chiptune</button>
+  <label><input type="checkbox" id="loopChiptune"> Loop</label>
+</div>
+
   <script>
 let beatTime = 0;
     const codeString = '';
@@ -429,6 +462,9 @@ function generatePlaybackJS(){
     }
 
 let chiptuneNotes = [];
+let chiptuneVariations = JSON.parse(localStorage.getItem('chiptuneVariations')) || [];
+let chiptuneSequence = JSON.parse(localStorage.getItem('chiptuneSequence')) || [];
+let currentChiptuneVariation = 0;
 let originalChiptuneNotes = [];
 let chiptuneIndex = 0;
 let isChiptunePlaying = false;
@@ -506,6 +542,112 @@ function playChiptune() {
 function stopChiptune() {
   isChiptunePlaying = false;
   cancelAnimationFrame(chiptuneScheduler);
+}
+
+function addChiptuneVariation() {
+  chiptuneVariations.push(document.getElementById('chiptuneInput').value);
+  currentChiptuneVariation = chiptuneVariations.length - 1;
+  localStorage.setItem('chiptuneVariations', JSON.stringify(chiptuneVariations));
+  renderChiptuneVariationOptions();
+  document.getElementById('chiptuneInput').value = chiptuneVariations[currentChiptuneVariation];
+}
+
+function changeChiptuneVariation(index) {
+  currentChiptuneVariation = parseInt(index);
+  document.getElementById('chiptuneInput').value = chiptuneVariations[currentChiptuneVariation];
+}
+
+function renderChiptuneVariationOptions() {
+  const select = document.getElementById("chiptuneVariationSelect");
+  const list = document.getElementById("chiptuneVariationList");
+  select.innerHTML = '';
+  list.innerHTML = '';
+  chiptuneVariations.forEach((_, i) => {
+    const opt = document.createElement("option");
+    opt.value = i;
+    opt.text = `Variation ${i + 1}`;
+    select.appendChild(opt);
+
+    const btn = document.createElement("div");
+    btn.className = 'variation-btn';
+    btn.textContent = `Variation ${i + 1}`;
+    btn.draggable = true;
+    btn.dataset.index = i;
+    btn.ondragstart = e => e.dataTransfer.setData("text/plain", `chiptune:${i}`);
+    list.appendChild(btn);
+  });
+}
+
+document.getElementById("chiptuneSequenceQueue").addEventListener("drop", e => {
+  const data = e.dataTransfer.getData("text/plain");
+  if (String(data).startsWith("chiptune:")) {
+    const index = parseInt(data.split(":")[1]); // ✅ CORRECTED
+    chiptuneSequence.push(index);
+    localStorage.setItem("chiptuneSequence", JSON.stringify(chiptuneSequence));
+    updateChiptuneQueueDisplay();
+  }
+});
+
+
+function updateChiptuneQueueDisplay() {
+  const queue = document.getElementById("chiptuneSequenceQueue");
+  queue.innerHTML = '';
+  chiptuneSequence.forEach((i, idx) => {
+    const item = document.createElement("div");
+    item.className = 'variation-btn';
+    item.textContent = `Var ${i + 1}`;
+    item.dataset.index = idx;
+    item.draggable = true;
+    item.ondragstart = e => e.dataTransfer.setData("text/plain", `chiptune:${i}`);
+
+    item.ondragover = e => e.preventDefault();
+    item.ondrop = e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const dragData = e.dataTransfer.getData("text/plain");
+      if (dragData.startsWith("chiptune:")) {
+		const insertAt = parseInt(e.target.dataset.index);
+		const index = parseInt(dragData.split(":")[1]); // ✅ FIXED
+        chiptuneSequence.splice(insertAt, 0, index);
+        localStorage.setItem("chiptuneSequence", JSON.stringify(chiptuneSequence));
+        updateChiptuneQueueDisplay();
+        return;
+      }
+      const fromIndex = parseInt(dragData.split(":")[1]);
+      const toIndex = parseInt(e.target.dataset.index);
+      if (fromIndex === toIndex) return;
+      const moved = chiptuneSequence.splice(fromIndex, 1)[0];
+      const correctedIndex = fromIndex < toIndex ? toIndex + 1 : toIndex;
+      chiptuneSequence.splice(correctedIndex, 0, moved);
+      localStorage.setItem("chiptuneSequence", JSON.stringify(chiptuneSequence));
+      updateChiptuneQueueDisplay();
+    };
+    queue.appendChild(item);
+  });
+}
+
+function clearChiptuneQueue() {
+  chiptuneSequence = [];
+  localStorage.setItem("chiptuneSequence", JSON.stringify(chiptuneSequence));
+  updateChiptuneQueueDisplay();
+}
+
+function playChiptuneVariation() {
+  queueChiptune(chiptuneVariations[currentChiptuneVariation] || '');
+}
+
+function startChiptuneSequence() {
+  if (!chiptuneSequence.length) return;
+  stopChiptune();
+  let index = 0;
+  function playNext() {
+    if (index >= chiptuneSequence.length) return;
+    queueChiptune(chiptuneVariations[chiptuneSequence[index]], tempo, false);
+    index++;
+    const duration = chiptuneNotes.reduce((sum, n) => sum + (n.duration || 1), 0) * (60 / tempo) * 250; // estimated duration
+    setTimeout(playNext, duration);
+  }
+  playNext();
 } 
 
 function queueChiptune(melodyString, bpm = tempo, loop = true) {
@@ -536,8 +678,24 @@ function queueChiptune(melodyString, bpm = tempo, loop = true) {
 
   schedule();
 }
-
-    
+document.getElementById("chiptuneInput").addEventListener("input", () => {
+  if (chiptuneVariations.length > 0) {
+    chiptuneVariations[currentChiptuneVariation] = document.getElementById("chiptuneInput").value;
+    localStorage.setItem('chiptuneVariations', JSON.stringify(chiptuneVariations));
+  }
+});
+function showTab(tab) {
+  document.getElementById('percussionTab').style.display = tab === 'percussion' ? '' : 'none';
+  document.getElementById('chiptuneTab').style.display = tab === 'chiptune' ? '' : 'none';
+}
+// Initialize chiptune variation/queue UI
+if (chiptuneVariations.length > 0) {
+  renderChiptuneVariationOptions();
+  updateChiptuneQueueDisplay();
+}
+if (chiptuneVariations.length === 0) {
+  addChiptuneVariation();
+}
   </script>
-</body>
+
 </html>
