@@ -127,7 +127,7 @@
   <button onclick="stopMasterSequence()">Stop Master Sequence</button>
   <button onclick="clearMasterQueues()">Clear Master Queue</button>
   <button onclick="startRecording()">Start Recording</button>
-<button onclick="stopRecording()">Stop & Download</button>
+<button onclick="stopRecordingAndExportMP3()">Stop & Download</button>
 </div>
 
 
@@ -198,17 +198,32 @@ C6:2 B5:2 A5:2 G5:2 R:4</textarea><br>
   <button onclick="playChiptune()">Play Chiptune</button>
   <label><input type="checkbox" id="loopChiptune"> Loop</label>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/recorder-js@1.0.3/dist/recorder.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
+
 
   <script>
-  
+  let recordedChunks = [];
+let isRecording = false;
+
 let beatTime = 0;
     const codeString = '';
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-	const recordingDest = audioCtx.createMediaStreamDestination();
-  const mainOut = audioCtx.createGain();
-mainOut.connect(audioCtx.destination);       // for hearing it
-mainOut.connect(recordingDest);              // for recording
+   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+const mainOut = audioCtx.createGain();
+const recordingDest = audioCtx.createMediaStreamDestination();
+const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+mainOut.connect(audioCtx.destination);   // for playback
+mainOut.connect(processor);              // for recording
+
+processor.connect(audioCtx.destination); // keep processor alive
+
+// No need to connect recordingDest to anything if using ScriptProcessor
+
+
+processor.onaudioprocess = function(e) {
+  if (!isRecording) return;
+  const input = e.inputBuffer.getChannelData(0);
+  recordedChunks.push(new Float32Array(input)); // store each chunk
+};
     const stepsPerBar = 16;
     let variations = JSON.parse(localStorage.getItem('variations')) || [];
     let sequence = JSON.parse(localStorage.getItem('sequence')) || [];
@@ -926,34 +941,70 @@ renderMasterLists();
 updateMasterQueues();
 
 let mediaRecorder;
-let recordedChunks = [];
+function floatTo16BitPCM(float32Array) {
+  const int16Array = new Int16Array(float32Array.length);
+  for (let i = 0; i < float32Array.length; i++) {
+    let s = Math.max(-1, Math.min(1, float32Array[i]));
+    int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  }
+  return int16Array;
+}
+
+function flattenArray(channelData) {
+  let length = 0;
+  for (let i = 0; i < channelData.length; i++) {
+    length += channelData[i].length;
+  }
+  const result = new Float32Array(length);
+  let offset = 0;
+  for (let i = 0; i < channelData.length; i++) {
+    result.set(channelData[i], offset);
+    offset += channelData[i].length;
+  }
+  return result;
+}
 
 function startRecording() {
   recordedChunks = [];
-  mediaRecorder = new MediaRecorder(recordingDest.stream);
-  mediaRecorder.ondataavailable = e => {
-    if (e.data.size > 0) recordedChunks.push(e.data);
-  };
-  mediaRecorder.start();
-  console.log("🎙️ Recording started");
+  isRecording = true;
+  console.log("🎙️ Recording started (MP3)");
 }
 
-function stopRecording() {
-  if (!mediaRecorder) return;
-  mediaRecorder.onstop = () => {
-    const blob = new Blob(recordedChunks, { type: 'audio/webm' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.style.display = 'none';
-    a.href = url;
-    a.download = 'drum_chiptune_recording.webm';
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    console.log("📁 Recording saved");
-  };
-  mediaRecorder.stop();
+function stopRecordingAndExportMP3() {
+  isRecording = false;
+  console.log("⏹️ Recording stopped. Encoding MP3...");
+
+  // Convert Float32Array chunks to Int16
+  const samples = flattenArray(recordedChunks);
+  const int16 = floatTo16BitPCM(samples);
+
+  // Encode with LAME
+  const mp3encoder = new lamejs.Mp3Encoder(1, audioCtx.sampleRate, 128);
+  const mp3Data = [];
+
+  let remaining = int16.length;
+  let position = 0;
+
+  while (remaining >= 1152) {
+    const mono = int16.subarray(position, position + 1152);
+    const mp3buf = mp3encoder.encodeBuffer(mono);
+    if (mp3buf.length > 0) mp3Data.push(mp3buf);
+    position += 1152;
+    remaining -= 1152;
+  }
+
+  const mp3buf = mp3encoder.flush();
+  if (mp3buf.length > 0) mp3Data.push(mp3buf);
+
+  const blob = new Blob(mp3Data, { type: 'audio/mp3' });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "export.mp3";
+  a.click();
 }
+
 
 
 
