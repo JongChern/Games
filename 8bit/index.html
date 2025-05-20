@@ -126,6 +126,8 @@
   <button onclick="startMasterSequence()">Play Master Sequence</button>
   <button onclick="stopMasterSequence()">Stop Master Sequence</button>
   <button onclick="clearMasterQueues()">Clear Master Queue</button>
+  <button onclick="startRecording()">Start Recording</button>
+<button onclick="stopRecording()">Stop & Download</button>
 </div>
 
 
@@ -196,11 +198,17 @@ C6:2 B5:2 A5:2 G5:2 R:4</textarea><br>
   <button onclick="playChiptune()">Play Chiptune</button>
   <label><input type="checkbox" id="loopChiptune"> Loop</label>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/recorder-js@1.0.3/dist/recorder.min.js"></script>
 
   <script>
+  
 let beatTime = 0;
     const codeString = '';
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+	const recordingDest = audioCtx.createMediaStreamDestination();
+  const mainOut = audioCtx.createGain();
+mainOut.connect(audioCtx.destination);       // for hearing it
+mainOut.connect(recordingDest);              // for recording
     const stepsPerBar = 16;
     let variations = JSON.parse(localStorage.getItem('variations')) || [];
     let sequence = JSON.parse(localStorage.getItem('sequence')) || [];
@@ -222,6 +230,23 @@ let masterChipQueue = JSON.parse(localStorage.getItem('masterChipQueue')) || [];
         localStorage.setItem("sequence", JSON.stringify(sequence));
         updateQueueDisplay();
       }
+	  
+	    
+  if (data.startsWith("masterPercQ:") && !e.target.closest('#masterPercQueue')) {
+    const removeIndex = parseInt(data.split(":")[1]);
+    masterPercQueue.splice(removeIndex, 1);
+    localStorage.setItem('masterPercQueue', JSON.stringify(masterPercQueue));
+    updateMasterQueues();
+  }
+
+  if (data.startsWith("masterChipQ:") && !e.target.closest('#masterChipQueue')) {
+    const removeIndex = parseInt(data.split(":")[1]);
+    masterChipQueue.splice(removeIndex, 1);
+    localStorage.setItem('masterChipQueue', JSON.stringify(masterChipQueue));
+    updateMasterQueues();
+  }
+	  
+	  
     });
 document.getElementById("sequenceQueue").addEventListener("drop", e => {
   const data = e.dataTransfer.getData("text/plain");
@@ -434,7 +459,7 @@ function startSequencePlayback() {
   osc.frequency.exponentialRampToValueAtTime(30, time + 0.25);
   gain.gain.setValueAtTime(1, time);
   gain.gain.exponentialRampToValueAtTime(0.001, time + 0.25);
-  osc.connect(gain).connect(audioCtx.destination);
+  osc.connect(gain).connect(mainOut);
   osc.start(time);
   osc.stop(time + 0.25);
     }
@@ -451,7 +476,7 @@ function startSequencePlayback() {
       const gain = audioCtx.createGain();
       gain.gain.setValueAtTime(0.5, time);
       gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
-      src.connect(filter).connect(gain).connect(audioCtx.destination);
+      src.connect(filter).connect(gain).connect(mainOut);
       src.start(time);
     }
 
@@ -467,7 +492,7 @@ function startSequencePlayback() {
       const gain = audioCtx.createGain();
       gain.gain.setValueAtTime(0.3, time);
       gain.gain.exponentialRampToValueAtTime(0.01, time + 0.05);
-      src.connect(filter).connect(gain).connect(audioCtx.destination);
+      src.connect(filter).connect(gain).connect(mainOut);
       src.start(time);
     }
 
@@ -546,7 +571,7 @@ function playNote(noteObj, time) {
   gain.gain.setValueAtTime(0.25, time);
   gain.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
 
-  osc.connect(gain).connect(audioCtx.destination);
+  osc.connect(gain).connect(mainOut);
   osc.start(time);
   osc.stop(time + 0.3);
 }
@@ -777,31 +802,76 @@ function renderMasterLists() {
     updateMasterQueues();
   });
 });
-
 function updateMasterQueues() {
   const perc = document.getElementById("masterPercQueue");
   const chip = document.getElementById("masterChipQueue");
   perc.innerHTML = '';
   chip.innerHTML = '';
 
-  masterPercQueue.forEach(i => {
+  masterPercQueue.forEach((i, idx) => {
     const div = document.createElement("div");
     div.className = 'variation-btn';
     div.textContent = `Perc ${i + 1}`;
+    div.draggable = true;
+    div.dataset.index = idx;
+    div.ondragstart = e => {
+      e.dataTransfer.setData("text/plain", `masterPercQ:${idx}`);
+    };
+    div.ondrop = e => {
+      e.preventDefault();
+	  e.stopPropagation(); // <—— This is the key!
+
+      const fromData = e.dataTransfer.getData("text/plain");
+      if (fromData.startsWith("masterPercQ:")) {
+        const fromIndex = parseInt(fromData.split(":")[1]);
+        const toIndex = idx;
+        if (fromIndex !== toIndex) {
+          const moved = masterPercQueue.splice(fromIndex, 1)[0];
+          const correctedIndex = fromIndex < toIndex ? toIndex - 1 : toIndex;
+          masterPercQueue.splice(correctedIndex, 0, moved);
+          updateMasterQueues();
+        }
+      }
+    };
+    div.ondragover = e => e.preventDefault();
     perc.appendChild(div);
   });
 
-  masterChipQueue.forEach(i => {
+  masterChipQueue.forEach((i, idx) => {
     const div = document.createElement("div");
     div.className = 'variation-btn';
     div.textContent = `Chip ${i + 1}`;
+    div.draggable = true;
+    div.dataset.index = idx;
+    div.ondragstart = e => {
+      e.dataTransfer.setData("text/plain", `masterChipQ:${idx}`);
+    };
+    div.ondrop = e => {
+      e.preventDefault();
+	  e.stopPropagation(); // <—— This is the key!
+
+      const fromData = e.dataTransfer.getData("text/plain");
+      if (fromData.startsWith("masterChipQ:")) {
+        const fromIndex = parseInt(fromData.split(":")[1]);
+        const toIndex = idx;
+        if (fromIndex !== toIndex) {
+          const moved = masterChipQueue.splice(fromIndex, 1)[0];
+          const correctedIndex = fromIndex < toIndex ? toIndex - 1 : toIndex;
+          masterChipQueue.splice(correctedIndex, 0, moved);
+          updateMasterQueues();
+        }
+      }
+    };
+    div.ondragover = e => e.preventDefault();
     chip.appendChild(div);
   });
 
-  // Save to localStorage
+  // Save updated queues
   localStorage.setItem('masterPercQueue', JSON.stringify(masterPercQueue));
   localStorage.setItem('masterChipQueue', JSON.stringify(masterChipQueue));
 }
+
+
 function startMasterSequence() {
   if (!masterPercQueue.length && !masterChipQueue.length) return;
   let pIdx = 0, cIdx = 0, stepInBar = 0;
@@ -854,6 +924,38 @@ function clearMasterQueues() {
 
 renderMasterLists();
 updateMasterQueues();
+
+let mediaRecorder;
+let recordedChunks = [];
+
+function startRecording() {
+  recordedChunks = [];
+  mediaRecorder = new MediaRecorder(recordingDest.stream);
+  mediaRecorder.ondataavailable = e => {
+    if (e.data.size > 0) recordedChunks.push(e.data);
+  };
+  mediaRecorder.start();
+  console.log("🎙️ Recording started");
+}
+
+function stopRecording() {
+  if (!mediaRecorder) return;
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = 'drum_chiptune_recording.webm';
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    console.log("📁 Recording saved");
+  };
+  mediaRecorder.stop();
+}
+
+
 
   </script>
 
