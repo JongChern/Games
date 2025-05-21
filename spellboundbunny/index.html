@@ -39,7 +39,7 @@
   <script>
   const GAME_VERSION = "v1.0.9"; // 🔁 Update this as needed
   const showTrees = true;
-  const BASE_JUMP_DURATION = 26; // Tweak this for feel
+  const BASE_JUMP_DURATION = 20; // Tweak this for feel
   const canvas = document.getElementById("gameCanvas");
   const ctx = canvas.getContext("2d");
   let JUMP_HEIGHT = canvas.height * 0.1;
@@ -57,7 +57,11 @@ function updateTreePositions() {
     leftTreeX = Math.round(window.innerWidth * 0.05);
     rightTreeX = Math.round(window.innerWidth * 0.95);
 }
-
+function getObstacleTopY(obs) {
+  if (obs.type === "snake") return obs.y - 20;  // adjust to match visual head
+  if (obs.type === "fox" && obs.isStanding) return obs.y - 20;
+  return obs.y;
+}
 function resizeCanvas() {
     const dpr = window.devicePixelRatio || 1;
 
@@ -383,11 +387,12 @@ canvas.addEventListener("touchend", (e) => {
     }
 */
 function drawFoxObstacle(obs) {
-  const { x, y } = obs;
+  const { x, y, isRaised: raiseHands } = obs;
   const scale = 0.6;
 
   ctx.save();
-  ctx.translate(x, y);
+  const standOffset = obs.isStanding ? -20 : 0; // ⬆️ Shift fox upwards when standing
+ctx.translate(x, y + standOffset);
   ctx.scale(scale, scale);
 
   // Body
@@ -455,7 +460,61 @@ function drawFoxObstacle(obs) {
   ctx.arc(0, -10, 4, 0, Math.PI * 2);
   ctx.fill();
 
-  // Tail (right)
+  // 🐾 Animated Hands
+if (obs.isStanding) {
+  // Stand: taller body, legs visible
+
+  // Extended legs (standing)
+  ctx.beginPath();
+  ctx.moveTo(-15, 60);
+  ctx.lineTo(-15, 90);
+  ctx.lineTo(-5, 90);
+  ctx.lineTo(-5, 60);
+  ctx.closePath();
+  ctx.fillStyle = "#e67e22";
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(15, 60);
+  ctx.lineTo(15, 90);
+  ctx.lineTo(5, 90);
+  ctx.lineTo(5, 60);
+  ctx.closePath();
+  ctx.fillStyle = "#e67e22";
+  ctx.fill();
+
+  // Shadow on ground
+  ctx.beginPath();
+  ctx.ellipse(0, 95, 20, 6, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+  ctx.fill();
+
+} else {
+  // Sitting posture (default = body to ground)
+
+  // Tail (already in sitting position)
+  ctx.beginPath();
+  ctx.moveTo(25, 60);
+  ctx.quadraticCurveTo(50, 40, 30, 10);
+  ctx.quadraticCurveTo(45, 40, 25, 60);
+  ctx.fillStyle = "#e67e22";
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(30, 20);
+  ctx.quadraticCurveTo(40, 35, 20, 55);
+  ctx.fillStyle = "#fbeec1";
+  ctx.fill();
+
+  // Shadow when sitting
+  ctx.beginPath();
+  ctx.ellipse(0, 66, 20, 6, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+  ctx.fill();
+}
+
+
+  // Tail
   ctx.beginPath();
   ctx.moveTo(25, 60);
   ctx.quadraticCurveTo(50, 40, 30, 10);
@@ -471,6 +530,7 @@ function drawFoxObstacle(obs) {
 
   ctx.restore();
 }
+
 
 function drawObstacle(obs) {
   if (obs.type === "fox") {
@@ -639,7 +699,13 @@ ctx.stroke();
 
       redLanes.forEach(lane => {
   const isFox = Math.random() < 0.5; // 50% chance
-  obstacles.push({ x: lanes[lane], y: -50, type: isFox ? "fox" : "snake" });
+  obstacles.push({
+  x: lanes[lane],
+  y: -50,
+  type: isFox ? "fox" : "snake",
+  poseTimer: 0,         // 🔁 animation timer
+  isStanding: false     // 🧍 pose flag
+});
 });
 
       if (Math.random() < 0.36 && targetWord && collectedLetters.length < targetWord.length) {
@@ -663,6 +729,16 @@ let alternateCarrotTheme = true;
       if (gamePaused) return;
 
       const effectiveSpeed = isJumping ? currentSpeed * 1.75 : currentSpeed;
+const poseCycle = 4000;     // Total cycle time (3s)
+const standDuration = 3000; // Fox stands for 1s, sits for 2s
+
+for (let obs of obstacles) {
+  if (obs.type === "fox") {
+    obs.poseTimer += effectiveSpeed * 16; // Adjust for scroll speed
+    const t = obs.poseTimer % poseCycle;
+    obs.isStanding = (t < standDuration); // First 1s = standing, rest = sitting
+  }
+}
       bgY += effectiveSpeed * 0.5;
       if (bgY > canvas.height) bgY = 0;
 
@@ -713,9 +789,9 @@ if (scrollSinceLastSpawn >= SPAWN_EVERY_PX && !gameOver && !gamePaused && !autoP
         drawObstacle(obs);
 
         if (!isJumping &&
-          obs.y + playerSize > playerY &&
-          obs.y < playerY + playerSize &&
-          obs.x === lanes[playerLane]) {
+              getObstacleTopY(obs) + playerSize > playerY &&
+    getObstacleTopY(obs) < playerY + playerSize &&
+    obs.x === lanes[playerLane]) {
           gameOver = true;
 		  bunnyPlayer.interruptAndPlay(bunnyTheme_3, 120);
           document.getElementById("gameOverOverlay").style.display = "flex";
