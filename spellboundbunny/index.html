@@ -58,8 +58,9 @@ function updateTreePositions() {
     rightTreeX = Math.round(window.innerWidth * 0.95);
 }
 function getObstacleTopY(obs) {
-  if (obs.type === "snake") return obs.y - 20;  // adjust to match visual head
+   if (obs.type === "snake") return obs.y - 20;
   if (obs.type === "fox" && obs.isStanding) return obs.y - 20;
+  if (obs.type === "owl") return obs.y - 20;
   return obs.y;
 }
 function resizeCanvas() {
@@ -535,10 +536,108 @@ if (obs.isStanding) {
 function drawObstacle(obs) {
   if (obs.type === "fox") {
     drawFoxObstacle(obs);
-  } else {
+  } else if (obs.type === "snake"){
     drawSnakeObstacle(obs); // your renamed former drawObstacle
+  } else if (obs.type === "owl"){
+	  drawOwlObstacle(obs);
   }
 }
+function drawOwlObstacle(obs) {
+  const { x, y } = obs;
+  const scale = 0.6;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+
+  // Body
+  ctx.beginPath();
+  ctx.ellipse(0, 60, 35, 60, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "#8B4513"; // brown
+  ctx.fill();
+  ctx.stroke();
+
+  // Wings
+  ctx.beginPath();
+  ctx.ellipse(-25, 60, 15, 50, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "#CD853F"; // tan
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.ellipse(25, 60, 15, 50, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "#CD853F";
+  ctx.fill();
+  ctx.stroke();
+
+  // Head
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 50, 40, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "#8B4513";
+  ctx.fill();
+  ctx.stroke();
+
+  // Eyes
+  ctx.beginPath();
+  ctx.arc(-20, 0, 15, 0, Math.PI * 2);
+  ctx.arc(20, 0, 15, 0, Math.PI * 2);
+  ctx.fillStyle = "white";
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(-20, 0, 6, 0, Math.PI * 2);
+  ctx.arc(20, 0, 6, 0, Math.PI * 2);
+  ctx.fillStyle = "black";
+  ctx.fill();
+
+  // Beak
+  ctx.beginPath();
+  ctx.moveTo(0, 10);
+  ctx.lineTo(-6, 20);
+  ctx.lineTo(6, 20);
+  ctx.closePath();
+  ctx.fillStyle = "gold";
+  ctx.fill();
+  ctx.stroke();
+
+  // Ears
+  ctx.beginPath();
+  ctx.moveTo(-30, -20);
+  ctx.lineTo(-40, -40);
+  ctx.lineTo(-20, -30);
+  ctx.closePath();
+  ctx.fillStyle = "#8B4513";
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(30, -20);
+  ctx.lineTo(40, -40);
+  ctx.lineTo(20, -30);
+  ctx.closePath();
+  ctx.fillStyle = "#8B4513";
+  ctx.fill();
+  ctx.stroke();
+
+  // Feet
+  ctx.fillStyle = "orange";
+  ctx.beginPath();
+  ctx.moveTo(-10, 115);
+  ctx.lineTo(-5, 125);
+  ctx.lineTo(-15, 125);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(10, 115);
+  ctx.lineTo(15, 125);
+  ctx.lineTo(5, 125);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.restore();
+}
+
 function drawSnakeObstacle(obs) {
   const { x, y } = obs;
 
@@ -698,11 +797,13 @@ ctx.stroke();
       if (currentSpeed < BASE_SPEED * MAX_SPEED_MULTIPLIER && redLanes.length >= 2) redLanes.splice(Math.floor(Math.random() * redLanes.length), 1);
 
       redLanes.forEach(lane => {
-  const isFox = Math.random() < 0.5; // 50% chance
+const animals = ["fox", "snake", "owl"];
+const animal = animals[Math.floor(Math.random() * animals.length)];
+	  
   obstacles.push({
   x: lanes[lane],
   y: -50,
-  type: isFox ? "fox" : "snake",
+  type: animal,
   poseTimer: 0,         // 🔁 animation timer
   isStanding: false     // 🧍 pose flag
 });
