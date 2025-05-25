@@ -37,7 +37,7 @@
 </div>
 
   <script>
-  const GAME_VERSION = "v1.0.12"; // 🔁 Update this as needed
+  const GAME_VERSION = "v1.0.13"; // 🔁 Update this as needed
   const showTrees = true;
   const BASE_JUMP_DURATION = 20; // Tweak this for feel
   const canvas = document.getElementById("gameCanvas");
@@ -1277,12 +1277,14 @@ document.getElementById("startGameBtn").addEventListener("click", () => {
   audioCtx.resume().then(() => {
   console.log("✅ Audio resumed");
 
-  // 🧠 iOS-specific: play a short dummy tone to enable audio output
-  const dummyOsc = audioCtx.createOscillator();
-  dummyOsc.frequency.setValueAtTime(440, audioCtx.currentTime);
-  dummyOsc.connect(audioCtx.destination);
-  dummyOsc.start();
-  dummyOsc.stop(audioCtx.currentTime + 0.01); // 10 ms tone
+    // 🎧 🔓 iOS unlock hack: play a silent-ish tone immediately
+    const dummy = audioCtx.createOscillator();
+    dummy.frequency.setValueAtTime(440, audioCtx.currentTime);
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0, audioCtx.currentTime); // silence it
+    dummy.connect(gain).connect(audioCtx.destination);
+    dummy.start(audioCtx.currentTime);
+    dummy.stop(audioCtx.currentTime + 0.01); // 10 ms tone
 
   // Then initialize your chiptune player
   bunnyPlayer = createQueuedChiptunePlayer(audioCtx);
