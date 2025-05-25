@@ -37,7 +37,7 @@
 </div>
 
   <script>
-  const GAME_VERSION = "v1.0.10"; // 🔁 Update this as needed
+  const GAME_VERSION = "v1.0.11"; // 🔁 Update this as needed
   const showTrees = true;
   const BASE_JUMP_DURATION = 20; // Tweak this for feel
   const canvas = document.getElementById("gameCanvas");
@@ -1127,8 +1127,7 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
-function createQueuedChiptunePlayer(defaultBpm = 120) {
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function createQueuedChiptunePlayer(audioCtx,defaultBpm = 120) {
   let beatTime = 60 / defaultBpm;
   let melody = [];
   let originalMelody = [];
@@ -1265,25 +1264,24 @@ function schedule() {
 </div>
 
 <script>
-  document.getElementById("startGameBtn").addEventListener("click", () => {
-    autoPlayMode = false;
-    document.getElementById("instructionOverlay").style.display = "none";
-    gamePaused = false;
-	// ✅ Create the audio player only after user interaction
-  if (!bunnyPlayer) {
-    bunnyPlayer = createQueuedChiptunePlayer();
-  }
-	
-    // Resume audio context if needed (iOS Safari fix)
-if (bunnyPlayer.audioCtx.state === "suspended") {
-  bunnyPlayer.audioCtx.resume().then(() => {
+document.getElementById("startGameBtn").addEventListener("click", () => {
+  autoPlayMode = false;
+  document.getElementById("instructionOverlay").style.display = "none";
+  gamePaused = false;
+
+  // ✅ Create AudioContext here — inside user gesture
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  const audioCtx = new AudioContext();
+
+  // ✅ Resume it immediately
+  audioCtx.resume().then(() => {
     console.log("✅ Audio resumed");
-    bunnyPlayer.queue(bunnyTheme_0, 120); // now safe to start
+    // ✅ Create the player with audioCtx
+    bunnyPlayer = createQueuedChiptunePlayer(audioCtx);
+    bunnyPlayer.queue(bunnyTheme_0, 120);
   });
-} else {
-  bunnyPlayer.queue(bunnyTheme_0, 120);
-}
-  });
+});
+
   
   window.addEventListener("load", () => {
     gamePaused = true;
