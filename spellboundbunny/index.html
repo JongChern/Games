@@ -50,7 +50,7 @@
   let playerY = canvas.height * 0.8;
   let gamePaused = false;
   let autoPlayMode = true;
-
+let burrowTrail = [];
   let leftTreeX, rightTreeX;
 
 function updateTreePositions() {
@@ -105,7 +105,7 @@ function updateLanes() {
     ((i + 1) * window.innerWidth) / (laneCount + 1)
   );
 }
-
+let burrowDustParticles = [];
 
     let obstacles = [];
     let letters = [];
@@ -137,7 +137,7 @@ let touchStartY = null;
     let walkFrame = 0;
 let isJumping = false;
 let landingFrame = 0;
-
+let isBurrowed = false;
 
 let jumpFrame = 0;
 let jumpLandOffset = 0;
@@ -238,6 +238,15 @@ async function preloadWord(length) {
     }
 
     document.addEventListener("keydown", (e) => {
+		
+		if (e.key === "ArrowDown" || e.key === "s" || e.key === "S") {
+  isBurrowed = true;
+}
+if (e.key === "ArrowUp" || e.key === "w" || e.key === "W") {
+  isBurrowed = false;
+}
+		
+		
   if (e.key === "ArrowUp" && !isJumping) {
     isJumping = true;
     const screenFactor = Math.min(canvas.height / 800, 1.5); // cap exaggeration
@@ -295,7 +304,58 @@ canvas.addEventListener("touchend", (e) => {
   touchStartY = null;
 });
 
+
+function drawBurrowDust() {
+  const x = lanes[playerLane];
+  const y = playerY + 45; // Ground level
+
+  // Emit new particles
+  for (let i = 0; i < 2; i++) {
+    burrowDustParticles.push({
+      x: x + (Math.random() - 0.5) * 20,
+      y: y,
+      radius: 3 + Math.random() * 3,
+      vx: (Math.random() - 0.5) * 0.8,
+      vy: -0.5 - Math.random() * 1.5,
+      alpha: 1
+    });
+  }
+
+  // Draw and update particles
+  for (let i = burrowDustParticles.length - 1; i >= 0; i--) {
+    const p = burrowDustParticles[i];
+    ctx.globalAlpha = p.alpha;
+    ctx.fillStyle = "#a98f74";
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Move
+    p.x += p.vx;
+    p.y += p.vy;
+    p.alpha -= 0.02;
+    p.radius *= 0.97;
+
+    if (p.alpha <= 0 || p.radius < 0.5) {
+      burrowDustParticles.splice(i, 1);
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  // Base dust ring
+  ctx.fillStyle = "#553c2b";
+  ctx.beginPath();
+  ctx.ellipse(x, y, 16, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+
     function drawPlayer() {
+		if (isBurrowed) {
+  drawBurrowDust();
+  return;
+}
+		
   const jumpOffset = isJumping ? -Math.sin((jumpDuration - jumpFrame) / jumpDuration * Math.PI) * JUMP_HEIGHT : 0;
       ctx.fillStyle = "white";
       const x = lanes[playerLane];
@@ -826,6 +886,11 @@ const animal = animals[Math.floor(Math.random() * animals.length)];
     }
 let alternateCarrotTheme = true;
     async function update() {
+		if (!isBurrowed) {
+  burrowDustParticles = [];
+}
+		
+		
       if (gameOver) return;
       if (gamePaused) return;
 
