@@ -37,7 +37,7 @@
 </div>
 
   <script>
-  const GAME_VERSION = "v1.0.13"; // 🔁 Update this as needed
+  const GAME_VERSION = "v1.0.14"; // 🔁 Update this as needed
   const showTrees = true;
   const BASE_JUMP_DURATION = 20; // Tweak this for feel
   const canvas = document.getElementById("gameCanvas");
@@ -50,8 +50,9 @@
   let playerY = canvas.height * 0.8;
   let gamePaused = false;
   let autoPlayMode = true;
-let burrowTrail = [];
+let powerups = [];
   let leftTreeX, rightTreeX;
+let canBurrow = false; // 🚫 Burrowing disabled by default
 
 function updateTreePositions() {
     leftTreeX = Math.round(window.innerWidth * 0.05);
@@ -239,10 +240,10 @@ async function preloadWord(length) {
 
     document.addEventListener("keydown", (e) => {
 		
-		if (e.key === "ArrowDown" || e.key === "s" || e.key === "S") {
+if ((e.key === "ArrowDown" || e.key === "s" || e.key === "S") && canBurrow) {
   isBurrowed = true;
 }
-if (e.key === "ArrowUp" || e.key === "w" || e.key === "W") {
+if ((e.key === "ArrowUp" || e.key === "w" || e.key === "W") && isBurrowed) {
   isBurrowed = false;
 }
 		
@@ -291,15 +292,30 @@ canvas.addEventListener("touchend", (e) => {
       playerLane--;
       hopFrame = 10;
     }
-  } else if (diffY > 50 && !isJumping) {
-    // Only jump if swipe is clearly vertical and strong
-    isJumping = true;
-    const screenFactor = Math.min(canvas.height / 800, 1.5); // cap exaggeration
-	jumpDuration = Math.floor(BASE_JUMP_DURATION * screenFactor * (BASE_SPEED / currentSpeed));
-
-    jumpFrame = jumpDuration;
+  }   // Vertical swipe
+  else if (absY > absX && absY > 30) {
+    if (diffY > 50) {
+      // Swipe up
+      if (isBurrowed) {
+        console.log("🟢 Unburrowing");
+        isBurrowed = false;
+      } else if (!isJumping) {
+        console.log("⬆️ Jump triggered");
+        isJumping = true;
+        const screenFactor = Math.min(canvas.height / 800, 1.5);
+        jumpDuration = Math.floor(BASE_JUMP_DURATION * screenFactor * (BASE_SPEED / currentSpeed));
+        jumpFrame = jumpDuration;
+      }
+    } else if (diffY < -50) {
+      // Swipe down
+  if (canBurrow) {
+    console.log("⬇️ Burrow triggered");
+    isBurrowed = true;
+  } else {
+    console.log("❌ Burrow not yet unlocked");
   }
-
+    }
+  }
   touchStartX = null;
   touchStartY = null;
 });
@@ -352,7 +368,7 @@ function drawBurrowDust() {
 
     function drawPlayer() {
 		if (isBurrowed) {
-  drawBurrowDust();
+ 
   return;
 }
 		
@@ -842,16 +858,25 @@ ctx.stroke();
     }
 
     function spawnObstacle() {
+		if (autoPlayMode) return; // 🚫 Prevent anything during autoplay
       const laneIndices = [0, 1, 2];
       const redLanes = [];
 
+let powerupLane = null;
+if (Math.random() < 0.5) { // 10% chance
+  powerupLane = Math.floor(Math.random() * 3);
+  powerups.push({ x: lanes[powerupLane], y: -50, type: "burrow" });
+}
+
       laneIndices.forEach(lane => {
-        if (currentSpeed < BASE_SPEED * MAX_SPEED_MULTIPLIER) {
-          if (Math.random() < 0.4) redLanes.push(lane);
-        } else {
-          if (Math.random() < 0.7) redLanes.push(lane);
-        }
-      });
+  if (lane === powerupLane) return; // 🚫 Skip powerup lane
+
+  if (currentSpeed < BASE_SPEED * MAX_SPEED_MULTIPLIER) {
+    if (Math.random() < 0.4) redLanes.push(lane);
+  } else {
+    if (Math.random() < 0.7) redLanes.push(lane);
+  }
+});
 
       if (redLanes.length >= 3) redLanes.splice(Math.floor(Math.random() * redLanes.length), 1);
       if (currentSpeed < BASE_SPEED * MAX_SPEED_MULTIPLIER && redLanes.length >= 2) redLanes.splice(Math.floor(Math.random() * redLanes.length), 1);
@@ -948,13 +973,15 @@ if (scrollSinceLastSpawn >= SPAWN_EVERY_PX && !gameOver && !gamePaused && !autoP
           hopFrame = 10;
         }
       }
-      
+      if (isBurrowed) {
+		  drawBurrowDust(); // ✅ Dust comes *under* obstacles now
+		}
 
       for (let obs of obstacles) {
         obs.y += effectiveSpeed;
         drawObstacle(obs);
 
-        if (!isJumping &&
+        if (!isJumping && !isBurrowed &&
               getObstacleTopY(obs) + playerSize > playerY &&
     getObstacleTopY(obs) < playerY + playerSize &&
     obs.x === lanes[playerLane]) {
@@ -973,7 +1000,7 @@ if (scrollSinceLastSpawn >= SPAWN_EVERY_PX && !gameOver && !gamePaused && !autoP
         letter.y += effectiveSpeed;
         drawLetter(letter);
 
-        if (!isJumping &&
+        if (!isJumping && !isBurrowed &&
           letter.y + playerSize > playerY &&
           letter.y < playerY + playerSize &&
           letter.x === lanes[playerLane]) {
@@ -1037,6 +1064,52 @@ if (scrollSinceLastSpawn >= SPAWN_EVERY_PX && !gameOver && !gamePaused && !autoP
       }
 
       drawTargetWord();
+	  
+	  for (let i = powerups.length - 1; i >= 0; i--) {
+  const p = powerups[i];
+  p.y += effectiveSpeed;
+
+  // Draw purple carrot
+  const x = p.x;
+  const y = p.y;
+  ctx.fillStyle = "purple";
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.bezierCurveTo(x - 19.7, y + 11, x - 12.2, y + 36, x, y + 48);
+  ctx.bezierCurveTo(x + 12.2, y + 36, x + 19.7, y + 11, x, y);
+  ctx.fill();
+
+  ctx.strokeStyle = "#9900cc";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Green stem
+  ctx.fillStyle = "green";
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x - 5, y - 12);
+  ctx.lineTo(x + 5, y - 12);
+  ctx.closePath();
+  ctx.fill();
+
+  // Collision check
+if (!isJumping &&
+    !isBurrowed &&
+    y + playerSize > playerY &&
+    y < playerY + playerSize &&
+    x === lanes[playerLane]) {
+
+  canBurrow = true; // 🔓 Enable burrowing
+  isBurrowed = true;
+
+  bunnyPlayer.interruptAndPlay(bunnyTheme_1, 120); // Optional SFX
+  powerups.splice(i, 1);
+}
+}
+
+	  
+	  
+	  
       drawPlayer();
       ctx.fillStyle = "white";
       const baseFontSize = 16;
@@ -1096,6 +1169,8 @@ ctx.fillStyle = (pop.text === "-1") ? "red" : "black"; // strong red for -1, bla
 
       obstacles = obstacles.filter(obs => obs.y < canvas.height);
       letters = letters.filter(letter => letter.y < canvas.height);
+	  powerups = powerups.filter(p => p.y < canvas.height);
+
     }
 
 
