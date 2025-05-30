@@ -5,6 +5,29 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Spellbound Bunny</title>
   <style>
+  #instructionOverlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start; /* Push items to the top */
+  padding: 20px;
+  padding-bottom: calc(40px + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+
+#startGameBtn {
+  margin-top: auto;
+  margin-bottom: calc(20px + env(safe-area-inset-bottom));
+  padding: 12px 24px;
+  font-size: 18px;
+  border-radius: 8px;
+  background: #fff;
+  color: #222;
+  border: none;
+  font-family: Garamond, serif;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
     body {
       margin: 0;
       overflow: hidden;
