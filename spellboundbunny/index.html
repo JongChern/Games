@@ -34,6 +34,7 @@
   <span id="missingLettersValue">0</span>
   <hr style="margin: 10px 0;">
   <div style="font-size: 14px; color: #aaa;">Version: <span id="versionLabel">...</span></div>
+  <span id="visitorCount"></span>
 </div>
 
   <script>
@@ -97,7 +98,7 @@ resizeCanvas(); // Call once initially
 
 let bgY = 0;
 let scrollSinceLastSpawn = 0;
-
+let wordStreak = 0;
 let playerLane = 1;
 
 
@@ -107,7 +108,8 @@ function updateLanes() {
   );
 }
 let burrowDustParticles = [];
-
+let burrowTimer = 0;        // countdown in frames (10s * 60fps)
+let showBurrowTimer = false;
     let obstacles = [];
     let letters = [];
     let collectedLetters = [];
@@ -428,16 +430,22 @@ function drawBurrowDust() {
 
       // Feet
       const footY = y + 40;
-      if (hopFrame > 0) {
-        ctx.fillRect(x - 12, footY, 5, 10);
-        ctx.fillRect(x + 7, footY, 5, 10);
-      } else {
-        if (walkFrame % 40 < 20) {
-          ctx.fillRect(x - 12, footY, 5, 10);
-        } else {
-          ctx.fillRect(x + 7, footY, 5, 10);
-        }
-      }
+
+if (isJumping) {
+  // Show both feet stable during jump
+  ctx.fillRect(x - 10, footY, 5, 10);
+  ctx.fillRect(x + 5, footY, 5, 10);
+} else if (hopFrame > 0) {
+  ctx.fillRect(x - 12, footY, 5, 10);
+  ctx.fillRect(x + 7, footY, 5, 10);
+} else {
+  if (walkFrame % 40 < 20) {
+    ctx.fillRect(x - 12, footY, 5, 10);
+  } else {
+    ctx.fillRect(x + 7, footY, 5, 10);
+  }
+}
+
     }
 
 /*
@@ -625,6 +633,10 @@ function drawOwlObstacle(obs) {
   ctx.translate(x, y);
   ctx.scale(scale, scale);
 
+  // Set explicit stroke and line width
+  ctx.strokeStyle = "black";
+  ctx.lineWidth = 1;
+
   // Body
   ctx.beginPath();
   ctx.ellipse(0, 60, 35, 60, 0, 0, Math.PI * 2);
@@ -789,50 +801,53 @@ ctx.stroke();
 
 
     function drawLetter(letterObj) {
-      const x = letterObj.x;
-      const y = letterObj.y;
+  const x = letterObj.x;
+  const y = letterObj.y;
 
-      ctx.fillStyle = "orange";
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.bezierCurveTo(x - 19.7, y + 11, x - 12.2, y + 36, x, y + 48);
-      ctx.bezierCurveTo(x + 12.2, y + 36, x + 19.7, y + 11, x, y);
-      ctx.fill();
+  // Carrot shape
+  ctx.fillStyle = "orange";
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.bezierCurveTo(x - 19.7, y + 11, x - 12.2, y + 36, x, y + 48);
+  ctx.bezierCurveTo(x + 12.2, y + 36, x + 19.7, y + 11, x, y);
+  ctx.fill();
 
-      ctx.strokeStyle = "#cc6600";
-      ctx.lineWidth = 1;
-      for (let i = 1; i < 4; i++) {
-        ctx.beginPath();
-        ctx.moveTo(x - 4, y + i * 8);
-        ctx.lineTo(x + 4, y + i * 8);
-        ctx.stroke();
-      }
+  ctx.strokeStyle = "#cc6600";
+  ctx.lineWidth = 1;
+  for (let i = 1; i < 4; i++) {
+    ctx.beginPath();
+    ctx.moveTo(x - 4, y + i * 8);
+    ctx.lineTo(x + 4, y + i * 8);
+    ctx.stroke();
+  }
 
-      ctx.fillStyle = "green";
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineTo(x - 5, y - 12);
-      ctx.lineTo(x - 2, y);
-      ctx.lineTo(x + 2, y - 14);
-      ctx.lineTo(x + 4, y);
-      ctx.closePath();
-      ctx.fill();
+  ctx.fillStyle = "green";
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x - 5, y - 12);
+  ctx.lineTo(x - 2, y);
+  ctx.lineTo(x + 2, y - 14);
+  ctx.lineTo(x + 4, y);
+  ctx.closePath();
+  ctx.fill();
 
-      ctx.font = "22px Garamond";
-		ctx.fillStyle = "black";
+  // ✅ Fix: Set font and measure *after* all carrot drawing
+  const fontSize = 22;
+  ctx.font = `${fontSize}px Garamond`;
+  ctx.fillStyle = "black";
+  ctx.textAlign = "left";        // ✅ fix for misalignment
+ctx.textBaseline = "alphabetic"; // ✅ fix for vertical misalignment
 
-		// Measure the letter
-		const metrics = ctx.measureText(letterObj.letter);
-		const letterWidth = metrics.width;
-		const ascent = metrics.actualBoundingBoxAscent || 16; // fallback for older browsers
+  const metrics = ctx.measureText(letterObj.letter);
+  const letterWidth = metrics.width;
+  const ascent = metrics.actualBoundingBoxAscent || fontSize * 0.75;
 
-		// Centered coordinates
-		const centerX = letterObj.x - (letterWidth / 2);
-		const centerY = letterObj.y + 48 - (48 - ascent) / 2;
+  const centerX = x - (letterWidth / 2);
+  const centerY = y + 48 - (48 - ascent) / 2;
 
-		// Draw the text
-		ctx.fillText(letterObj.letter, centerX, centerY);
-    }
+  ctx.fillText(letterObj.letter, centerX, centerY);
+}
+
 
     function drawTargetWord() {
       const fontSize = 36.4;
@@ -863,9 +878,10 @@ ctx.stroke();
       const redLanes = [];
 
 let powerupLane = null;
-if (Math.random() < 0.5) { // 10% chance
+if (Math.random() < 0.05) { // 5% chance
   powerupLane = Math.floor(Math.random() * 3);
-  powerups.push({ x: lanes[powerupLane], y: -50, type: "burrow" });
+  powerups.push({ x: lanes[powerupLane], y: -50, type: "burrow", collected: false });
+
 }
 
       laneIndices.forEach(lane => {
@@ -882,8 +898,11 @@ if (Math.random() < 0.5) { // 10% chance
       if (currentSpeed < BASE_SPEED * MAX_SPEED_MULTIPLIER && redLanes.length >= 2) redLanes.splice(Math.floor(Math.random() * redLanes.length), 1);
 
       redLanes.forEach(lane => {
-const animals = ["fox", "snake", "owl"];
-const animal = animals[Math.floor(Math.random() * animals.length)];
+let availableAnimals = ["snake"];
+if (wordStreak >= 2) availableAnimals.push("fox");
+if (wordStreak >= 4) availableAnimals.push("owl");
+
+const animal = availableAnimals[Math.floor(Math.random() * availableAnimals.length)];
 	  
   obstacles.push({
   x: lanes[lane],
@@ -902,7 +921,8 @@ const animal = animals[Math.floor(Math.random() * animals.length)];
           letterToShow = targetWord[Math.floor(Math.random() * targetWord.length)];
         }
 
-        const availableLanes = laneIndices.filter(l => !redLanes.includes(l));
+        const availableLanes = laneIndices.filter(l => !redLanes.includes(l) && l !== powerupLane);
+
         if (availableLanes.length > 0) {
           const lane = availableLanes[Math.floor(Math.random() * availableLanes.length)];
           letters.push({ letter: letterToShow, x: lanes[lane], y: -50 });
@@ -911,6 +931,16 @@ const animal = animals[Math.floor(Math.random() * animals.length)];
     }
 let alternateCarrotTheme = true;
     async function update() {
+		if (burrowTimer > 0) {
+  burrowTimer--;
+  if (burrowTimer === 0) {
+    isBurrowed = false;
+    canBurrow = false;
+    showBurrowTimer = false;
+  }
+}
+		
+		
 		if (!isBurrowed) {
   burrowDustParticles = [];
 }
@@ -976,7 +1006,33 @@ if (scrollSinceLastSpawn >= SPAWN_EVERY_PX && !gameOver && !gamePaused && !autoP
       if (isBurrowed) {
 		  drawBurrowDust(); // ✅ Dust comes *under* obstacles now
 		}
+ if (showBurrowTimer && burrowTimer > 0) {
+  const total = 600; // 10 seconds * 60 FPS
+  const remaining = burrowTimer;
+  const progress = remaining / total;
 
+  const barWidth = 160;
+  const barHeight = 16;
+  const x = canvas.clientWidth / 2 - barWidth / 2;
+const y = canvas.clientHeight - 60;
+
+
+  // Background
+  ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+  ctx.fillRect(x, y, barWidth, barHeight);
+  ctx.strokeStyle = "white";
+  ctx.strokeRect(x, y, barWidth, barHeight);
+
+  // Fill
+  ctx.fillStyle = "#b77bff"; // light purple
+  ctx.fillRect(x, y, barWidth * progress, barHeight);
+
+  // Optional label
+  ctx.font = "14px Garamond";
+  ctx.fillStyle = "white";
+  ctx.textAlign = "center";
+  ctx.fillText("Burrow", canvas.width / 2, y - 6);
+}
       for (let obs of obstacles) {
         obs.y += effectiveSpeed;
         drawObstacle(obs);
@@ -998,7 +1054,8 @@ if (scrollSinceLastSpawn >= SPAWN_EVERY_PX && !gameOver && !gamePaused && !autoP
       for (let i = letters.length - 1; i >= 0; i--) {
         const letter = letters[i];
         letter.y += effectiveSpeed;
-        drawLetter(letter);
+        ctx.font = "22px Garamond"; // force reset here
+		drawLetter(letter);
 
         if (!isJumping && !isBurrowed &&
           letter.y + playerSize > playerY &&
@@ -1094,23 +1151,34 @@ if (scrollSinceLastSpawn >= SPAWN_EVERY_PX && !gameOver && !gamePaused && !autoP
 
   // Collision check
 if (!isJumping &&
-    !isBurrowed &&
+    !p.collected &&
     y + playerSize > playerY &&
     y < playerY + playerSize &&
     x === lanes[playerLane]) {
 
-  canBurrow = true; // 🔓 Enable burrowing
-  isBurrowed = true;
+  p.collected = true; // ✅ mark so we don't collect it again
+  canBurrow = true;
 
-  bunnyPlayer.interruptAndPlay(bunnyTheme_1, 120); // Optional SFX
+if (!isBurrowed && burrowTimer <= 0) {
+  isBurrowed = true;
+  burrowTimer = 600;
+}
+
+
+  showBurrowTimer = true;
+  bunnyPlayer.interruptAndPlay(bunnyTheme_1, 120);
   powerups.splice(i, 1);
 }
+
+
 }
 
 	  
 	  
 	  
       drawPlayer();
+	  
+	  
       ctx.fillStyle = "white";
       const baseFontSize = 16;
       const pulseSize = scorePulseFrame > 0 ? baseFontSize + scorePulseFrame * 1.5 : baseFontSize;
@@ -1147,6 +1215,7 @@ ctx.fillStyle = (pop.text === "-1") ? "red" : "black"; // strong red for -1, bla
 });
 
       if (collectedLetters.join("") === targetWord) {
+		  wordStreak++; // ✅ increment streak
         bunnyPlayer.interruptAndPlay(bunnyTheme_2, 120);
         if (document.getElementById("voiceToggle")?.checked) {
         const utterance = new SpeechSynthesisUtterance(targetWord);
@@ -1440,4 +1509,26 @@ document.getElementById("startGameBtn").addEventListener("click", () => {
   
   document.getElementById("versionLabel").textContent = GAME_VERSION;
 </script>
+
+<script>
+  window.addEventListener("load", () => {
+    const COUNTER_NAMESPACE = "spellbound-bunny";
+    const COUNTER_KEY = "visits";
+
+    fetch(`https://api.countapi.xyz/hit/${COUNTER_NAMESPACE}/${COUNTER_KEY}`)
+      .then(res => res.json())
+      .then(data => {
+        const visitsLabel = document.getElementById("visitorCount");
+        if (visitsLabel) {
+         visitsLabel.textContent = `Visitors: ${data.value}`;
+        }
+      })
+      .catch(err => {
+        console.error("Visitor counter error:", err);
+      });
+  });
+</script>
+
+
+
 </html>
