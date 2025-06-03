@@ -105,11 +105,12 @@ canvas {
 
 
   <script>
-  const emg1Buffer = new Array(512).fill(0);
-const emg2Buffer = new Array(512).fill(0);
+  const emg1Buffer = new Array(5120).fill(0);
+const emg2Buffer = new Array(5120).fill(0);
 let emgIndex = 0;
   let lastPrintedTime = 0;
 let latestGyroSample = null;
+let emgPrintCounter = 0;
  let selectedDevice = null;
 let server = null;
 let rxCharacteristic = null;
@@ -219,25 +220,6 @@ document.getElementById("streamBtn").addEventListener("click", async () => {
   }
 
   try {
-    // Step 1: Calculate and send sampling rate command (0x05 XX XX)
-    const rate = 51.2;
-    const samplingValue = Math.floor(32768 / rate);
-    const lowByte = samplingValue & 0xFF;
-    const highByte = (samplingValue >> 8) & 0xFF;
-    const samplingCommand = new Uint8Array([0x05, 0x80, 0x02]);
-    //await rxCharacteristic.writeValue(samplingCommand);
-	    // Step 3: Wait 200ms
-    await sleep(200);
-    appendToConsole(`➡️ Sent sampling rate: 0x05 ${lowByte.toString(16)} ${highByte.toString(16)}`);
-
-    // Step 2: Send 0x08 0x00 0x40
-    const configCommand = new Uint8Array([0x08, 0x40, 0x00, 0x00]);
-    //await rxCharacteristic.writeValue(configCommand);
-    appendToConsole("➡️ Sent config: 0x08 0x40 0x00 0x00");
-
-    // Step 3: Wait 200ms
-    await sleep(200);
-
     // Step 4: Send 0x07 to start streaming
     const streamCommand = new Uint8Array([0x07]);
     await rxCharacteristic.writeValue(streamCommand);
@@ -245,7 +227,7 @@ document.getElementById("streamBtn").addEventListener("click", async () => {
 	if (!plotIntervalId) {
   plotIntervalId = setInterval(() => {
     const latest = emg1Buffer.slice(emgIndex - 10, emgIndex).join(', ');
-    appendToConsole(`EMG1 Buffer [last 10]: ${latest}`);
+    //appendToConsole(`EMG1 Buffer [last 10]: ${latest}`);
 
     drawEMG(document.getElementById("emg1Plot"), emg1Buffer);
     drawEMG(document.getElementById("emg2Plot"), emg2Buffer);
@@ -263,15 +245,23 @@ function drawEMG(canvas, buffer) {
   const height = canvas.height;
 
   ctx.clearRect(0, 0, width, height);
+
+  const min = Math.min(...buffer);
+  const max = Math.max(...buffer);
+  const range = max - min || 1; // prevent divide-by-zero
+
   ctx.beginPath();
   for (let i = 0; i < buffer.length; i++) {
     const x = (i / buffer.length) * width;
-    const y = height / 2 - buffer[i] / 200; // adjust scale
+    const normalized = (buffer[i] - min) / range; // scale 0 to 1
+    const y = height - normalized * height;
     ctx.lineTo(x, y);
   }
+
   ctx.strokeStyle = '#0f0';
   ctx.stroke();
 }
+
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -288,30 +278,70 @@ function handleNotifications(event) {
 
   let offset = 0;
 
-  while (receiveBuffer.length - offset >= 10) {
-    const packet = receiveBuffer.slice(offset, offset + 10);
+  while (receiveBuffer.length - offset >= 11) {
+  const packet = receiveBuffer.slice(offset, offset + 11);
 
-    // Parse emg1 and emg2 from bytes 4–6 and 7–9
-    const emg1 = parseSigned24bit(packet[4], packet[5], packet[6]);
-    const emg2 = parseSigned24bit(packet[7], packet[8], packet[9]);
-	emg1Buffer[emgIndex] = emg1;
-	emg2Buffer[emgIndex] = emg2;
-	emgIndex = (emgIndex + 1) % emg1Buffer.length;
-    latestGyroSample = { emg1, emg2 }; // Rename if needed
-
-    offset += 10;
+  // Confirm packet[0] == 0
+  if (packet[0] !== 0) {
+    console.warn("Invalid packet start byte:", packet[0]);
+    offset += 1; // Try next byte
+    continue;
   }
+    // 🔸 Extract EMG status (unsigned byte)
+    const emgStatus = packet[4];
+  const emg1 = parseSigned16bit(packet[5], packet[6]);
+  const emg2 = parseSigned16bit(packet[7], packet[8]);
+
+  emg1Buffer[emgIndex] = emg1;
+  emg2Buffer[emgIndex] = emg2;
+  emgIndex = (emgIndex + 1) % emg1Buffer.length;
+    // 🔸 Print status to console
+  if (++emgPrintCounter >= 512) {
+  appendToConsole(`EMG Status: ${emgStatus} | EMG1: ${emg1} | EMG2: ${emg2}`);
+  emgPrintCounter = 0;
+}
+  offset += 9;
+}
+
 
   // Retain any leftover bytes
   receiveBuffer = receiveBuffer.slice(offset);
 }
 
 // Helper function to parse signed 24-bit integer (little-endian)
-function parseSigned24bit(b0, b1, b2) {
-  const unsigned = b0 | (b1 << 8) | (b2 << 16);
-  return (unsigned & 0x800000) ? unsigned - 0x1000000 : unsigned;
+function calculateTwosComplement(signedData, bitLength) {
+  if (signedData >= (1 << (bitLength - 1))) {
+    return -((signedData ^ ((1 << bitLength) - 1)) + 1);
+  }
+  return signedData;
 }
-    
+
+function parseSigned16bit(b0, b1) {
+  // Equivalent of:
+  // long xmsb = ((long)(data[iData + 0] & 0xFF) << 16);
+  // long msb  = ((long)(data[iData + 1] & 0xFF) << 8);
+  // long lsb  = ((long)(data[iData + 2] & 0xFF));
+  const xmsb = (b0 & 0xFF) << 8;
+  const lsb  = (b1 & 0xFF);
+  const combined = xmsb + lsb;
+
+  // Equivalent of: formattedData[i] = CalculateTwosComplement((int)combined, 24);
+  return calculateTwosComplement(combined, 24);
+}
+
+function parseSigned24bit(b0, b1, b2) {
+  // Equivalent of:
+  // long xmsb = ((long)(data[iData + 0] & 0xFF) << 16);
+  // long msb  = ((long)(data[iData + 1] & 0xFF) << 8);
+  // long lsb  = ((long)(data[iData + 2] & 0xFF));
+  const xmsb = (b0 & 0xFF) << 16;
+  const msb  = (b1 & 0xFF) << 8;
+  const lsb  = (b2 & 0xFF);
+  const combined = xmsb + msb + lsb;
+
+  // Equivalent of: formattedData[i] = CalculateTwosComplement((int)combined, 24);
+  return calculateTwosComplement(combined, 24);
+}
 function appendToConsole(text) {
   const consoleEl = document.getElementById("consoleOutput");
   consoleEl.textContent += text + "\n";
