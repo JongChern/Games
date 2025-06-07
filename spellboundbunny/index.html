@@ -69,7 +69,7 @@
 </script>
 
   <script>
-  const GAME_VERSION = "v1.0.17"; // 🔁 Update this as needed
+  const GAME_VERSION = "v1.0.18"; // 🔁 Update this as needed
   const showTrees = true;
   const BASE_JUMP_DURATION = 20; // Tweak this for feel
   const canvas = document.getElementById("gameCanvas");
@@ -1548,26 +1548,5 @@ document.getElementById("startGameBtn").addEventListener("click", () => {
   
   document.getElementById("versionLabel").textContent = GAME_VERSION;
 </script>
-
-<script>
-  window.addEventListener("load", () => {
-    const COUNTER_NAMESPACE = "spellbound-bunny";
-    const COUNTER_KEY = "visits";
-
-    fetch(`https://api.countapi.xyz/hit/${COUNTER_NAMESPACE}/${COUNTER_KEY}`)
-      .then(res => res.json())
-      .then(data => {
-        const visitsLabel = document.getElementById("visitorCount");
-        if (visitsLabel) {
-         visitsLabel.textContent = `Visitors: ${data.value}`;
-        }
-      })
-      .catch(err => {
-        console.error("Visitor counter error:", err);
-      });
-  });
-</script>
-
-
 
 </html>
