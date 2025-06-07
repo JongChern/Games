@@ -61,7 +61,7 @@
 </div>
 
   <script>
-  const GAME_VERSION = "v1.0.15"; // 🔁 Update this as needed
+  const GAME_VERSION = "v1.0.16"; // 🔁 Update this as needed
   const showTrees = true;
   const BASE_JUMP_DURATION = 20; // Tweak this for feel
   const canvas = document.getElementById("gameCanvas");
@@ -350,16 +350,23 @@ function drawBurrowDust() {
   const x = lanes[playerLane];
   const y = playerY + 45; // Ground level
 
-  // Emit new particles
-  for (let i = 0; i < 2; i++) {
-    burrowDustParticles.push({
-      x: x + (Math.random() - 0.5) * 20,
-      y: y,
-      radius: 3 + Math.random() * 3,
-      vx: (Math.random() - 0.5) * 0.8,
-      vy: -0.5 - Math.random() * 1.5,
-      alpha: 1
-    });
+  // 🔁 Only emit particles every other frame (optional throttle)
+  if (walkFrame % 2 === 0) {
+    for (let i = 0; i < 2; i++) {
+      burrowDustParticles.push({
+        x: x + (Math.random() - 0.5) * 20,
+        y: y,
+        radius: 3 + Math.random() * 3,
+        vx: (Math.random() - 0.5) * 0.8,
+        vy: -0.5 - Math.random() * 1.5,
+        alpha: 1
+      });
+    }
+  }
+
+  // ✅ CAP: Limit total particles to 300
+  if (burrowDustParticles.length > 300) {
+    burrowDustParticles.splice(0, burrowDustParticles.length - 300);
   }
 
   // Draw and update particles
@@ -389,6 +396,7 @@ function drawBurrowDust() {
   ctx.ellipse(x, y, 16, 6, 0, 0, Math.PI * 2);
   ctx.fill();
 }
+
 
 
     function drawPlayer() {
