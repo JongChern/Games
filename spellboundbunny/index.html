@@ -45,12 +45,7 @@
   <canvas id="gameCanvas"></canvas>
   <button id="settingsToggle" style="position: absolute; top: 10px; right: 10px; z-index: 10;">⚙️ Settings</button>
 <div id="settingsPanel" style="display: none; position: absolute; top: 50px; right: 10px; background: #333; color: white; padding: 10px; border: 1px solid #555; border-radius: 4px; z-index: 10;">
-  <label for="speedSlider">Game Speed:</label><br>
-  <input type="range" id="speedSlider" min="1" max="15" step="0.1" value="5">
-  <span id="speedValue">5</span><br><br>
   <label><input type="checkbox" id="voiceToggle" checked> Enable Voice</label>
-
-  <label><input type="checkbox" id="hardMode"> Hard Mode</label><br><br>
 
   <label for="missingLettersSlider">Missing Letters:</label><br>
   <input type="range" id="missingLettersSlider" min="0" max="3" step="1" value="0">
@@ -158,9 +153,10 @@ let missingIndices = [];
     const BASE_WORD_LENGTH = 3;
     const MAX_WORD_LENGTH = 9;
 
-    const SPEED_INCREMENT = 0.05;
-    const MAX_SPEED_MULTIPLIER = 2.0;
-    const BASE_SPEED = 5;
+    const SPEED_INCREMENT = 0.2;
+    const BASE_SPEED = 3.0;
+	const MAX_SPEED_MULTIPLIER = 6.0 / BASE_SPEED; // → 2.4
+    
     let currentSpeed = BASE_SPEED;
     let spawnInterval = 1000;
     let spawnTimer;
@@ -239,7 +235,15 @@ let bunnyPlayer;
   "WATCH", "START", "CHILD", "YOUTH", "ADULT", "ELDER", "WOMAN", "MANLY", "TEENS", "YOUNG",
   "OLDER", "KNOWS", "LEARN", "SHARE", "TEACH", "GUIDE", "LEADS", "BUILD", "MAKES", "FINDS",
   "PLANS", "CHOSE", "FOLKS", "CROWD", "GROUP", "CLASS", "GRADE", "LEVEL", "DEGREE", "POINT",
-  "LINES", "SLOPE", "TILES", "FLOOR", "WALLS", "DOORS", "CLOSE", "OPENS", "LOCKS", "TURNS"
+  "LINES", "SLOPE", "TILES", "FLOOR", "WALLS", "DOORS", "CLOSE", "OPENS", "LOCKS", "TURNS",
+   "JUMP", "HIDE", "FIND", "RUN", "BUNNY", "CARROT", "TRICK", "CHASE", "DASH", "HOP",
+    "WARM", "COLD", "NICE", "KIND", "BOSS", "FAST", "SLOW", "ZAP", "BOOM", "ZOOM",
+    "MAGIC", "WAND", "SPELL", "BROOM", "WITCH", "OWL", "FOX", "DEN", "BURROW", "DUST",
+    "FUN", "PLAY", "TOY", "CAMP", "TREE", "PATH", "ROAD", "CAVE", "MOUNT", "HILL",
+    "BEAR", "FROG", "DUCK", "DEER", "BUSH", "GRASS", "FIELD", "SKY", "STAR", "MOON",
+    "SUN", "RAIN", "CLOUD", "WIND", "SNOW", "DROP", "POND", "FISH", "SWIM", "WAVE",
+    "ROCK", "STONE", "LOG", "BARK", "ROOT", "LEAF", "BLOOM", "BUD", "SEED", "NEST"
+  
 ];
 
 document.body.addEventListener("touchmove", (e) => {
@@ -250,16 +254,9 @@ document.body.addEventListener("touchmove", (e) => {
 
 async function preloadWord(length) {
   try {
-    const hardMode = document.getElementById("hardMode")?.checked;
-    if (hardMode) {
-      const res = await fetch(`https://random-word-api.herokuapp.com/word?length=${length}`);
-      const data = await res.json();
-      return data[0].toUpperCase();
-    } else {
-      const candidates = commonWords.filter(word => word.length === length);
-      const choice = candidates[Math.floor(Math.random() * candidates.length)];
-      return choice;
-    }
+    const candidates = commonWords.filter(word => word.length === length);
+const choice = candidates[Math.floor(Math.random() * candidates.length)];
+return choice;
   } catch {
     return "RUN";
       }
@@ -284,7 +281,8 @@ if ((e.key === "ArrowUp" || e.key === "w" || e.key === "W") && isBurrowed) {
   if (e.key === "ArrowUp" && !isJumping) {
     isJumping = true;
     const screenFactor = Math.min(canvas.height / 800, 1.5); // cap exaggeration
-jumpDuration = Math.floor(BASE_JUMP_DURATION * screenFactor * (BASE_SPEED / currentSpeed));
+const speedRatio = Math.min(60 / currentSpeed, 1.8); // cap so it's not too floaty
+jumpDuration = Math.floor(BASE_JUMP_DURATION * screenFactor * speedRatio);
 
 	jumpFrame = jumpDuration;
   }
@@ -335,8 +333,9 @@ canvas.addEventListener("touchend", (e) => {
       } else if (!isJumping) {
         console.log("⬆️ Jump triggered");
         isJumping = true;
-        const screenFactor = Math.min(canvas.height / 800, 1.5);
-        jumpDuration = Math.floor(BASE_JUMP_DURATION * screenFactor * (BASE_SPEED / currentSpeed));
+const screenFactor = Math.min(canvas.height / 800, 1.5); // cap exaggeration
+const speedRatio = Math.min(60 / currentSpeed, 1.8); // cap so it's not too floaty
+jumpDuration = Math.floor(BASE_JUMP_DURATION * screenFactor * speedRatio);
         jumpFrame = jumpDuration;
       }
     } else if (diffY < -50) {
@@ -997,7 +996,8 @@ const standDuration = 3000; // Fox stands for 1s, sits for 2s
 
 for (let obs of obstacles) {
   if (obs.type === "fox") {
-    obs.poseTimer += effectiveSpeed * 16; // Adjust for scroll speed
+    obs.poseTimer += deltaTime * 1000; // Advance by milliseconds per real time
+
     const t = obs.poseTimer % poseCycle;
     obs.isStanding = (t < standDuration); // First 1s = standing, rest = sitting
   }
@@ -1314,39 +1314,19 @@ let lastFrameTime = performance.now();
 }
 
 
-    document.getElementById("speedSlider").addEventListener("input", function(e) {
-	  const val = parseFloat(e.target.value);
-	  currentSpeed = val;
-	  document.getElementById("speedValue").textContent = val;
-	  localStorage.setItem("lastSpeed", val); // ← Add this line
-	});
-
+    
     document.getElementById("missingLettersSlider").addEventListener("input", function(e) {
       const value = parseInt(e.target.value);
       localStorage.setItem("missingCount", value);
       document.getElementById("missingLettersValue").textContent = value;
     });
 
-    const savedSpeed = parseFloat(localStorage.getItem("lastSpeed"));
-    if (!isNaN(savedSpeed)) {
-      currentSpeed = savedSpeed;
-      document.getElementById("speedSlider").value = savedSpeed;
-      document.getElementById("speedValue").textContent = savedSpeed;
-    }
-
+    
     const savedMissing = parseInt(localStorage.getItem("missingCount"));
     if (!isNaN(savedMissing)) {
       document.getElementById("missingLettersSlider").value = savedMissing;
       document.getElementById("missingLettersValue").textContent = savedMissing;
     }
-
-    const savedHardMode = localStorage.getItem("hardMode");
-    if (savedHardMode !== null) {
-      document.getElementById("hardMode").checked = savedHardMode === "true";
-    }
-    document.getElementById("hardMode").addEventListener("change", function(e) {
-      localStorage.setItem("hardMode", e.target.checked);
-    });
 
     const savedVoice = localStorage.getItem("voiceToggle");
     if (savedVoice !== null) {
