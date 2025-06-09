@@ -969,7 +969,7 @@ const animal = availableAnimals[Math.floor(Math.random() * availableAnimals.leng
       }
     }
 let alternateCarrotTheme = true;
-    async function update() {
+    async function update(deltaTime) {
 		if (burrowTimer > 0) {
   burrowTimer--;
   if (burrowTimer === 0) {
@@ -988,7 +988,10 @@ let alternateCarrotTheme = true;
       if (gameOver) return;
       if (gamePaused) return;
 
-      const effectiveSpeed = isJumping ? currentSpeed * 1.75 : currentSpeed;
+      const speedPerSecond = currentSpeed * 60;
+const effectiveSpeed = isJumping ? speedPerSecond * 1.75 : speedPerSecond;
+const scrollDelta = effectiveSpeed * deltaTime;
+
 const poseCycle = 4000;     // Total cycle time (3s)
 const standDuration = 3000; // Fox stands for 1s, sits for 2s
 
@@ -999,10 +1002,10 @@ for (let obs of obstacles) {
     obs.isStanding = (t < standDuration); // First 1s = standing, rest = sitting
   }
 }
-      bgY += effectiveSpeed * 0.5;
+      bgY += scrollDelta * 0.5;
+
       if (bgY > canvas.height) bgY = 0;
 
-const scrollDelta = effectiveSpeed;
 scrollSinceLastSpawn += scrollDelta;
 
 if (scrollSinceLastSpawn >= SPAWN_EVERY_PX && !gameOver && !gamePaused && !autoPlayMode) {
@@ -1073,7 +1076,7 @@ const y = canvas.clientHeight - 60;
   ctx.fillText("Burrow", canvas.width / 2, y - 6);
 }
       for (let obs of obstacles) {
-        obs.y += effectiveSpeed;
+        obs.y += scrollDelta;
         drawObstacle(obs);
 
         if (!isJumping && !isBurrowed &&
@@ -1092,7 +1095,7 @@ const y = canvas.clientHeight - 60;
 
       for (let i = letters.length - 1; i >= 0; i--) {
         const letter = letters[i];
-        letter.y += effectiveSpeed;
+        letter.y += scrollDelta;
         ctx.font = "22px Garamond"; // force reset here
 		drawLetter(letter);
 
@@ -1163,7 +1166,7 @@ const y = canvas.clientHeight - 60;
 	  
 	  for (let i = powerups.length - 1; i >= 0; i--) {
   const p = powerups[i];
-  p.y += effectiveSpeed;
+  p.y += scrollDelta;
 
   // Draw purple carrot
   const x = p.x;
@@ -1280,27 +1283,36 @@ ctx.fillStyle = (pop.text === "-1") ? "red" : "black"; // strong red for -1, bla
 	  powerups = powerups.filter(p => p.y < canvas.height);
 
     }
+let lastFrameTime = performance.now();
 
 
     function gameLoop() {
-      update();
-      walkFrame++;
-      if (hopFrame > 0) hopFrame--;
-      if (landingFrame > 0) {
-        landingFrame--;
-        jumpLandOffset *= 0.85; // gradually return to normal
-        if (landingFrame === 0) jumpLandOffset = 0;
-      }
-      if (jumpFrame > 0) {
-        jumpFrame--;
-        if (jumpFrame === 0) {
-        isJumping = false;
-        landingFrame = 10;
-        jumpLandOffset = -30; // bunny lands visually forward
-      }
-      }
-      requestAnimationFrame(gameLoop);
+  const now = performance.now();
+  const deltaTime = (now - lastFrameTime) / 1000; // in seconds
+  lastFrameTime = now;
+
+  update(deltaTime); // pass delta time
+  walkFrame++;
+  if (hopFrame > 0) hopFrame--;
+
+  if (landingFrame > 0) {
+    landingFrame--;
+    jumpLandOffset *= 0.85;
+    if (landingFrame === 0) jumpLandOffset = 0;
+  }
+
+  if (jumpFrame > 0) {
+    jumpFrame--;
+    if (jumpFrame === 0) {
+      isJumping = false;
+      landingFrame = 10;
+      jumpLandOffset = -30;
     }
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
 
     document.getElementById("speedSlider").addEventListener("input", function(e) {
 	  const val = parseFloat(e.target.value);
