@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dog-Themed Canvas Chess (Sprite-Ready)</title>
+  <style>
+    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+    body { display: grid; place-items: center; background: #f7f7fb; }
+    .wrap { display: grid; gap: 12px; justify-items: center; }
+    canvas { background: #fff; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.08); touch-action: none; }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; }
+    button { padding: 10px 14px; border-radius: 10px; border: 0; box-shadow: 0 6px 16px rgba(0,0,0,.08); background: #2d7ef7; color: #fff; font-weight: 700; cursor: pointer; }
+    button.secondary { background: #e7ecf5; color: #1f2937; }
+    .note { max-width: 780px; font-size: 14px; color: #374151; line-height: 1.4; text-align: center; }
+    .badge { font-size: 12px; padding: 4px 8px; border-radius: 8px; background: #fff7d6; border: 1px solid #f3e7a6; color: #7a6c2b; }
+    .config { width: min(800px, 92vw); background: #ffffff; border-radius: 12px; padding: 12px; border: 1px solid #e5e7eb; }
+    .config pre { white-space: pre-wrap; word-break: break-word; background: #f8fafc; padding: 8px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="row">
+      <span class="badge">No copyrighted characters included. Uses emoji placeholders by default.</span>
+    </div>
+    <canvas id="board" width="720" height="720" aria-label="Chess board" role="img"></canvas>
+    <div class="row">
+      <button id="newGame">New Game</button>
+      <button id="toggleHints" class="secondary">Hints: On</button>
+      <button id="flip" class="secondary">Flip Board</button>
+    </div>
+    <div class="note">
+      <strong>Sprites optional:</strong> This game is built to accept your own image URLs (e.g., public-domain / CC0 dog icons) without editing the code. Add them in the box below and click “Apply Sprite URLs”.
+      
+      <div class="config">
+        <div style="margin-bottom:6px">Paste a JSON object mapping piece keys to image URLs. Supported keys: <code>wp, wr, wn, wb, wq, wk, bp, br, bn, bb, bq, bk</code>.</div>
+        <pre>{
+  "wp": "https://example.com/cc0-dog-pawn.png",
+  "wr": "https://example.com/cc0-dog-rook.png"
+}</pre>
+        <textarea id="spriteJSON" rows="4" style="width:100%;box-sizing:border-box;border-radius:8px;padding:8px;border:1px solid #e5e7eb;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace" placeholder="{\n  &quot;wp&quot;: &quot;https://.../public-domain-pawn.png&quot;\n}"></textarea>
+        <div class="row" style="margin-top:8px"><button id="applySprites" class="secondary">Apply Sprite URLs</button></div>
+      </div>
+      <p style="margin-top:10px">Why no Paw Patrol images? Those are copyrighted. To stay safe and simple, this version uses kid-friendly emoji (🐶, 🐾) and accepts your own public-domain sprite URLs. If you later provide licensed images, just drop the URLs above.</p>
+    </div>
+  </div>
+
+  <script>
+    // =============================
+    // Canvas Chess (Sprite-Ready)
+    // =============================
+    // Light, kid-friendly chess with:
+    // - Mouse & touch drag
+    // - Legal moves for all pieces (no en passant, no castling; simple promotion to queen)
+    // - Optional sprite URL mapping via a JSON box (no code edits needed)
+    // - Big squares, highlights & hints
+
+    const SIZE = 720;
+    const DIM = 8;
+    const SQ = SIZE / DIM;
+    const canvas = document.getElementById('board');
+    const ctx = canvas.getContext('2d');
+
+    const COLORS = {
+      light: '#F4F6FA',
+      dark: '#AAD1FF',
+      edge: '#1f2937',
+      select: '#ffd16688',
+      hint: '#06b6d4aa',
+      capture: '#ef444488',
+    };
+
+    let boardFlipped = false;
+    let showHints = true;
+
+    // Default emoji-based visuals, friendly for kids.
+    const EMOJI = {
+      w: { p: '🐾', r: '🐶', n: '🦴', b: '🐕', q: '👑', k: '⭐' },
+      b: { p: '🐾', r: '🐶', n: '🦴', b: '🐕', q: '👑', k: '⭐' }
+    };
+
+    // Sprite cache. Users can paste URLs; we will load them to this map.
+    const spriteImages = new Map(); // key => HTMLImageElement
+    let spriteURLs = {}; // Set via JSON input.
+
+    // Game state
+    let pieces = []; // {type, color, x, y, id, hasMoved}
+    let turn = 'w';
+    let selected = null; // piece id
+    let legalMoves = []; // {x,y, capture?:boolean}
+
+    // Utility helpers
+    const inBounds = (x,y) => x>=0 && x<8 && y>=0 && y<8;
+    function keyAt(x,y){ return (boardFlipped ? (7-x) : x) + ',' + (boardFlipped ? (7-y) : y); }
+
+    function algebra(x,y){
+      // a1 bottom-left from white perspective
+      const file = 'abcdefgh'[x];
+      const rank = (y+1).toString();
+      return file+rank;
+    }
+
+    function clone(obj){ return JSON.parse(JSON.stringify(obj)); }
+
+    function at(x,y){ return pieces.find(p=>p.x===x && p.y===y); }
+
+    function setupPieces(){
+      pieces = [];
+      const add = (type,color,x,y)=> pieces.push({type,color,x,y,id:crypto.randomUUID(),hasMoved:false});
+      // Pawns
+      for(let i=0;i<8;i++){ add('p','w',i,1); add('p','b',i,6); }
+      // Rooks
+      add('r','w',0,0); add('r','w',7,0);
+      add('r','b',0,7); add('r','b',7,7);
+      // Knights
+      add('n','w',1,0); add('n','w',6,0);
+      add('n','b',1,7); add('n','b',6,7);
+      // Bishops
+      add('b','w',2,0); add('b','w',5,0);
+      add('b','b',2,7); add('b','b',5,7);
+      // Queens
+      add('q','w',3,0); add('q','b',3,7);
+      // Kings
+      add('k','w',4,0); add('k','b',4,7);
+      turn = 'w';
+      selected = null;
+      legalMoves = [];
+    }
+
+    // Move generation — minimal but legal enough for kids
+    function genMoves(piece){
+      const {type,color,x,y} = piece;
+      const dir = (color==='w') ? 1 : -1;
+      const moves = [];
+
+      const pushIfEmpty = (nx,ny)=>{ if(inBounds(nx,ny) && !at(nx,ny)) moves.push({x:nx,y:ny}); };
+      const pushIfCapture = (nx,ny)=>{ if(inBounds(nx,ny)){ const t=at(nx,ny); if(t && t.color!==color) moves.push({x:nx,y:ny,capture:true}); } };
+      const ray = (dx,dy)=>{
+        let nx=x+dx, ny=y+dy;
+        while(inBounds(nx,ny)){
+          const t=at(nx,ny);
+          if(!t){ moves.push({x:nx,y:ny}); }
+          else{ if(t.color!==color) moves.push({x:nx,y:ny,capture:true}); break; }
+          nx+=dx; ny+=dy;
+        }
+      };
+
+      switch(type){
+        case 'p':
+          // forward
+          pushIfEmpty(x, y+dir);
+          // double from start
+          if(!piece.hasMoved && !at(x, y+dir) && !at(x, y+2*dir)) pushIfEmpty(x, y+2*dir);
+          // captures
+          pushIfCapture(x-1, y+dir);
+          pushIfCapture(x+1, y+dir);
+          break;
+        case 'r': ray(1,0); ray(-1,0); ray(0,1); ray(0,-1); break;
+        case 'b': ray(1,1); ray(-1,1); ray(1,-1); ray(-1,-1); break;
+        case 'q': ray(1,0); ray(-1,0); ray(0,1); ray(0,-1); ray(1,1); ray(-1,1); ray(1,-1); ray(-1,-1); break;
+        case 'n':
+          [[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]].forEach(([dx,dy])=>{
+            const nx=x+dx, ny=y+dy; if(!inBounds(nx,ny)) return; const t=at(nx,ny);
+            if(!t || t.color!==color) moves.push({x:nx,y:ny,capture:!!t});
+          });
+          break;
+        case 'k':
+          for(let dx=-1;dx<=1;dx++) for(let dy=-1;dy<=1;dy++){
+            if(dx===0 && dy===0) continue; const nx=x+dx, ny=y+dy; if(!inBounds(nx,ny)) continue;
+            const t=at(nx,ny); if(!t || t.color!==color) moves.push({x:nx,y:ny,capture:!!t});
+          }
+          break;
+      }
+
+      // Filter out moves that leave own king in check (basic safety)
+      return moves.filter(m => !wouldLeaveKingInCheck(piece, m));
+    }
+
+    function wouldLeaveKingInCheck(piece, move){
+      const snapshot = clone({pieces, turn});
+      // play move
+      const target = at(move.x, move.y);
+      if(target){ pieces = pieces.filter(p=>p.id!==target.id); }
+      const orig = {x:piece.x, y:piece.y};
+      piece.x = move.x; piece.y = move.y;
+
+      const inCheck = isKingInCheck(piece.color);
+
+      // undo
+      piece.x = orig.x; piece.y = orig.y;
+      if(target){ pieces.push(target); }
+      return inCheck;
+    }
+
+    function isKingInCheck(color){
+      const king = pieces.find(p=>p.type==='k' && p.color===color);
+      if(!king) return false;
+      const enemy = pieces.filter(p=>p.color!==color);
+      return enemy.some(e=> genMovesNoCheckFilter(e).some(m=> m.x===king.x && m.y===king.y));
+    }
+
+    // Raw move gen without king-safety filter for check detection
+    function genMovesNoCheckFilter(piece){
+      const {type,color,x,y} = piece;
+      const dir = (color==='w') ? 1 : -1;
+      const moves = [];
+      const inB = (nx,ny)=> nx>=0 && nx<8 && ny>=0 && ny<8;
+      const at2 = (nx,ny)=> pieces.find(p=>p.x===nx && p.y===ny);
+      const pushEmpty = (nx,ny)=>{ if(inB(nx,ny) && !at2(nx,ny)) moves.push({x:nx,y:ny}); };
+      const pushCap = (nx,ny)=>{ if(inB(nx,ny)){ const t=at2(nx,ny); if(t && t.color!==color) moves.push({x:nx,y:ny,capture:true}); } };
+      const ray = (dx,dy)=>{ let nx=x+dx, ny=y+dy; while(inB(nx,ny)){ const t=at2(nx,ny); if(!t) moves.push({x:nx,y:ny}); else { if(t.color!==color) moves.push({x:nx,y:ny,capture:true}); break;} nx+=dx; ny+=dy; } };
+      switch(type){
+        case 'p':
+          pushEmpty(x, y+dir);
+          if(!piece.hasMoved && !at2(x,y+dir) && !at2(x,y+2*dir)) pushEmpty(x, y+2*dir);
+          pushCap(x-1, y+dir); pushCap(x+1, y+dir);
+          break;
+        case 'r': ray(1,0); ray(-1,0); ray(0,1); ray(0,-1); break;
+        case 'b': ray(1,1); ray(-1,1); ray(1,-1); ray(-1,-1); break;
+        case 'q': ray(1,0); ray(-1,0); ray(0,1); ray(0,-1); ray(1,1); ray(-1,1); ray(1,-1); ray(-1,-1); break;
+        case 'n': [[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]].forEach(([dx,dy])=>{ const nx=x+dx, ny=y+dy; if(!inB(nx,ny)) return; const t=at2(nx,ny); if(!t || t.color!==color) moves.push({x:nx,y:ny,capture:!!t}); }); break;
+        case 'k': for(let dx=-1;dx<=1;dx++) for(let dy=-1;dy<=1;dy++){ if(dx===0 && dy===0) continue; const nx=x+dx, ny=y+dy; if(!inB(nx,ny)) continue; const t=at2(nx,ny); if(!t || t.color!==color) moves.push({x:nx,y:ny,capture:!!t}); } break;
+      }
+      return moves;
+    }
+
+    function movePiece(piece, move){
+      // capture
+      const target = at(move.x, move.y);
+      if(target){ pieces = pieces.filter(p=>p.id!==target.id); }
+
+      // make move
+      piece.x = move.x; piece.y = move.y; piece.hasMoved = true;
+
+      // promotion: pawns reaching last rank become queens
+      if(piece.type==='p' && (piece.y === 7 || piece.y === 0)){
+        piece.type = 'q';
+      }
+
+      // toggle turn
+      turn = (turn==='w') ? 'b' : 'w';
+      selected = null; legalMoves = [];
+
+      // checkmate or stalemate (simple detection)
+      const hasAnyMove = pieces.filter(p=>p.color===turn).some(p=> genMoves(p).length>0);
+      if(!hasAnyMove){
+        const check = isKingInCheck(turn);
+        setTimeout(()=>{
+          alert(check ? `Checkmate! ${(turn==='w'?'Black':'White')} wins.` : 'Stalemate!');
+        },10);
+      }
+      draw();
+    }
+
+    function drawBoard(){
+      ctx.clearRect(0,0,SIZE,SIZE);
+      for(let y=0;y<8;y++){
+        for(let x=0;x<8;x++){
+          const rx = boardFlipped? 7-x : x;
+          const ry = boardFlipped? 7-y : y;
+          const isDark = (x+y)%2===1;
+          ctx.fillStyle = isDark? COLORS.dark : COLORS.light;
+          ctx.fillRect(rx*SQ, (7-ry)*SQ, SQ, SQ);
+        }
+      }
+      // grid lines subtle
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1;
+      for(let i=0;i<=8;i++){
+        ctx.beginPath(); ctx.moveTo(i*SQ,0); ctx.lineTo(i*SQ,SIZE); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0,i*SQ); ctx.lineTo(SIZE,i*SQ); ctx.stroke();
+      }
+    }
+
+    function drawPieces(){
+      for(const p of pieces){ drawPiece(p); }
+    }
+
+    function drawPiece(p){
+      const rx = boardFlipped? 7-p.x : p.x;
+      const ry = boardFlipped? 7-p.y : p.y;
+      const cx = rx*SQ + SQ/2;
+      const cy = (7-ry)*SQ + SQ/2;
+
+      const key = (p.color==='w'?'w':'b') + p.type; // e.g., "wp"
+      const img = spriteImages.get(key);
+      if(img){
+        const scale = 0.86; const w = SQ*scale; const h = SQ*scale;
+        ctx.drawImage(img, cx - w/2, cy - h/2, w, h);
+        return;
+      }
+
+      // Fallback: emoji with colored base circle
+      ctx.save();
+      ctx.beginPath();
+      ctx.fillStyle = p.color==='w' ? '#ffffff' : '#1f2937';
+      ctx.arc(cx, cy, SQ*0.38, 0, Math.PI*2);
+      ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = '#11182722'; ctx.stroke();
+      ctx.font = `${Math.floor(SQ*0.38)}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const emoji = EMOJI[p.color][p.type];
+      ctx.fillText(emoji, cx, cy);
+      ctx.restore();
+    }
+
+    function highlightSelection(){
+      if(!selected) return;
+      const p = pieces.find(pp=>pp.id===selected);
+      if(!p) return;
+      const rx = boardFlipped? 7-p.x : p.x;
+      const ry = boardFlipped? 7-p.y : p.y;
+      ctx.save();
+      ctx.fillStyle = COLORS.select;
+      ctx.fillRect(rx*SQ, (7-ry)*SQ, SQ, SQ);
+      ctx.restore();
+
+      if(showHints){
+        for(const m of legalMoves){
+          const mx = boardFlipped? 7-m.x : m.x;
+          const my = boardFlipped? 7-m.y : m.y;
+          ctx.save();
+          ctx.fillStyle = m.capture? COLORS.capture : COLORS.hint;
+          const r = SQ*0.16;
+          ctx.beginPath();
+          ctx.arc(mx*SQ+SQ/2, (7-my)*SQ+SQ/2, r, 0, Math.PI*2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+    }
+
+    function draw(){
+      drawBoard();
+      highlightSelection();
+      drawPieces();
+    }
+
+    function squareFromClient(clientX, clientY){
+      const rect = canvas.getBoundingClientRect();
+      const x = clientX - rect.left; const y = clientY - rect.top;
+      const sx = Math.floor(x / SQ); const sy = Math.floor(y / SQ);
+      // convert to board coords (not flipped)
+      const rx = boardFlipped? 7 - sx : sx;
+      const ry = boardFlipped? 7 - (7 - sy) : (7 - sy);
+      return {x: rx, y: ry};
+    }
+
+    function pickAt(x,y){
+      const piece = pieces.find(p=>p.x===x && p.y===y && p.color===turn);
+      return piece || null;
+    }
+
+    function onDown(clientX, clientY){
+      const {x,y} = squareFromClient(clientX, clientY);
+      const p = pickAt(x,y);
+      if(p){
+        selected = p.id;
+        legalMoves = genMoves(p);
+      } else if(selected){
+        // Try move to empty/capture
+        const psel = pieces.find(pp=>pp.id===selected);
+        const mv = legalMoves.find(m=>m.x===x && m.y===y);
+        if(mv) movePiece(psel, mv);
+        else { selected = null; legalMoves = []; }
+      }
+      draw();
+    }
+
+    function onMove(clientX, clientY){ /* optional visual drag ghost could be added */ }
+    function onUp(clientX, clientY){ /* handled in onDown as we snap to squares */ }
+
+    // Mouse
+    canvas.addEventListener('mousedown', e=> onDown(e.clientX, e.clientY));
+    canvas.addEventListener('mousemove', e=> onMove(e.clientX, e.clientY));
+    canvas.addEventListener('mouseup',   e=> onUp(e.clientX, e.clientY));
+
+    // Touch
+    canvas.addEventListener('touchstart', e=>{ const t=e.changedTouches[0]; onDown(t.clientX, t.clientY); e.preventDefault(); });
+    canvas.addEventListener('touchmove',  e=>{ const t=e.changedTouches[0]; onMove(t.clientX, t.clientY); e.preventDefault(); });
+    canvas.addEventListener('touchend',   e=>{ const t=e.changedTouches[0]; onUp(t.clientX, t.clientY); e.preventDefault(); });
+
+    // Controls
+    document.getElementById('newGame').addEventListener('click', ()=>{ setupPieces(); draw(); });
+    document.getElementById('toggleHints').addEventListener('click', (e)=>{ showHints = !showHints; e.currentTarget.textContent = `Hints: ${showHints? 'On':'Off'}`; draw(); });
+    document.getElementById('flip').addEventListener('click', ()=>{ boardFlipped = !boardFlipped; draw(); });
+
+    // Sprite application
+    document.getElementById('applySprites').addEventListener('click', ()=>{
+      try{
+        const json = document.getElementById('spriteJSON').value.trim();
+        spriteURLs = json ? JSON.parse(json) : {};
+        loadSprites(spriteURLs).then(()=> draw());
+      }catch(err){
+        alert('Invalid JSON. Please check your mapping keys and URLs.');
+      }
+    });
+
+    async function loadSprites(map){
+      spriteImages.clear();
+      const keys = ['wp','wr','wn','wb','wq','wk','bp','br','bn','bb','bq','bk'];
+      const loaders = keys.map(k=> new Promise(res=>{
+        const url = map[k];
+        if(!url) return res();
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = ()=>{ spriteImages.set(k, img); res(); };
+        img.onerror = ()=>{ console.warn('Failed to load sprite for', k, url); res(); };
+        img.src = url;
+      }));
+      await Promise.all(loaders);
+    }
+
+    // Init
+    setupPieces();
+    draw();
+  </script>
+</body>
+</html>
